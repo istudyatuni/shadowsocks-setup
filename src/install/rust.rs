@@ -148,4 +148,8 @@ pub fn run(st: &State) {
     if let Err(e) = print_config(&st) {
         eprintln!("\nAn error occurred: {e}");
     }
+
+    cmd!(st.sh, "reboot").run().unwrap_or_else(|e| {
+        eprintln!("Cannot reboot: {e}");
+    });
 }
