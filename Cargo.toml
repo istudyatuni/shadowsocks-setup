@@ -1,0 +1,14 @@
+[package]
+name = "shadowsocks-setup"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+strip = true
+
+[dependencies]
+clap = { version = "3.1.8", "features" = ["wrap_help"] }
+pnet = "0.29.0"
+xshell = "0.2.1"

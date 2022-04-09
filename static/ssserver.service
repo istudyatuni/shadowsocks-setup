@@ -1,0 +1,17 @@
+[Unit]
+Description=ssserver service
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/ssservice server -c /etc/sssconfig.json
+ExecStop=/usr/bin/killall ssserver
+Restart=always
+RestartSec=10                       # Restart service after 10 seconds if service crashes
+StandardOutput=syslog               # Output to syslog
+StandardError=syslog                # Output to syslog
+SyslogIdentifier=ssserver
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target
