@@ -3,7 +3,6 @@ on:
   push:
     tags:
       - v*
-    branches: master
 
 env:
   CARGO_TERM_COLOR: always
@@ -32,14 +31,7 @@ jobs:
           tar caf $BIN_NAME-$GITHUB_REF_NAME.tar.xz $BIN_NAME
       - name: Upload Github Assets
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: release/*.tar.xz
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        if: startsWith(github.ref, 'refs/heads/')
-        with:
-          name: artifacts
-          path: release/${{ env.BIN_NAME }}
