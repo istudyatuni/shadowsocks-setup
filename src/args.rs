@@ -12,12 +12,14 @@ pub fn define_command_line_options(app: Command<'_>) -> Command<'_> {
         Arg::new("SERVER_PORT")
             .long("port")
             .required(true)
+            .takes_value(true)
             .help("Server port"),
     )
     .arg(
         Arg::new("SERVER_PASSWORD")
             .long("password")
             .required(true)
+            .takes_value(true)
             .help("Server password"),
     )
     .arg(
