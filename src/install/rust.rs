@@ -42,13 +42,10 @@ fn write_append(path: &str, contents: &str) -> Result<(), Box<dyn std::error::Er
 }
 
 fn is_config_already_modified(conf_path: &str) -> bool {
-    match fs::read_to_string(conf_path)
+    fs::read_to_string(conf_path)
         .unwrap_or_default()
         .find(CONFIGS_CHECK_HEADER)
-    {
-        Some(_) => true,
-        None => false,
-    }
+        .is_some()
 }
 
 // install logic
