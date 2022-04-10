@@ -3,7 +3,7 @@ use std::io::Write;
 
 use pnet::datalink;
 use serde_json::{json, to_string_pretty};
-use xshell::cmd;
+use xshell::{cmd, Shell};
 
 use crate::state::State;
 
@@ -52,6 +52,16 @@ fn is_config_already_modified(conf_path: &str) -> bool {
 }
 
 // install logic
+
+fn check_requirements(sh: &Shell) -> Result<(), Box<dyn std::error::Error>> {
+    println!("[prepare] checking requirements");
+    let bin_reqs = vec!["wget", "sha256sum", "tar", "systemctl", "cp", "sysctl", "ufw"];
+    for r in bin_reqs {
+        cmd!(sh, "which {r}").quiet().run()?;
+    }
+
+    Ok(())
+}
 
 fn download(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     let url = download_url();
@@ -152,6 +162,10 @@ fn print_config(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn run(st: &State) {
+    if let Err(e) = check_requirements(&st.sh) {
+        eprintln!("\n{e}");
+        return;
+    }
     if let Err(e) = download(&st) {
         eprintln!("\nAn error occurred when downloading: {e}");
         return;
