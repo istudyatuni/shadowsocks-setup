@@ -15,6 +15,7 @@ pub fn define_command_line_options(app: Command<'_>) -> Command<'_> {
                     .long("port")
                     .required(true)
                     .takes_value(true)
+                    .validator(|p| p.parse::<i32>())
                     .help("Server port"),
             )
             .arg(

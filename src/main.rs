@@ -20,10 +20,6 @@ fn prepare_state() -> State {
             let pass = subm.value_of("SERVER_PASSWORD").unwrap();
             let cipher = subm.value_of("CIPHER").unwrap();
             let action = Action::Install(Install::new(ss_type, port, pass, cipher));
-            let _: i32 = port.parse().unwrap_or_else(|_| {
-                eprintln!("Port shold be a number");
-                process::exit(1);
-            });
 
             State::new(action)
         }

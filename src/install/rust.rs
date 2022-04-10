@@ -62,7 +62,7 @@ fn download(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     cmd!(st.sh, "sha256sum --check {file}.sha256").run()?;
 
     cmd!(st.sh, "tar -xf {file}").run()?;
-    cmd!(st.sh, "mv ssservice {SSSERVICE_BIN}").run()?;
+    cmd!(st.sh, "cp ssservice {SSSERVICE_BIN}").run()?;
 
     Ok(())
 }
