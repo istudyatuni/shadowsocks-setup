@@ -52,7 +52,15 @@ fn is_config_already_modified(conf_path: &str) -> bool {
 
 fn check_requirements(sh: &Shell) -> Result<(), Box<dyn std::error::Error>> {
     println!("[prepare] checking requirements");
-    let bin_reqs = vec!["wget", "sha256sum", "tar", "systemctl", "cp", "sysctl", "ufw"];
+    let bin_reqs = vec![
+        "wget",
+        "sha256sum",
+        "tar",
+        "systemctl",
+        "cp",
+        "sysctl",
+        "ufw",
+    ];
     for r in bin_reqs {
         cmd!(sh, "which {r}").quiet().run()?;
     }
