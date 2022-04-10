@@ -2,6 +2,7 @@ use std::fs;
 use std::io::Write;
 
 use pnet::datalink;
+use serde_json::{json, to_string_pretty};
 use xshell::cmd;
 
 use crate::state::State;
@@ -76,16 +77,13 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("\n[config] create shadowsocks config");
-    let sssconfig = format!(
-        r#"{{
-    "server": "0.0.0.0",
-    "server_port": {},
-    "password": "{}",
-    "method": "{}"
-}}"#,
-        install.server_port, install.server_password, install.cipher
-    );
-    fs::write(CONFIG_FILE, sssconfig)?;
+    let sssconfig = json!({
+        "server": "0.0.0.0",
+        "server_port": install.server_port.parse::<i32>()?,
+        "password": install.server_password,
+        "method": install.cipher,
+    });
+    fs::write(CONFIG_FILE, to_string_pretty(&sssconfig)?)?;
 
     println!("\n[config] create shadowsocks systemd service unit");
     fs::create_dir_all(SYSTEMD_SERVICE_FOLDER)?;
@@ -136,20 +134,19 @@ fn print_config(st: &State) -> Result<(), Box<dyn std::error::Error>> {
         .expect("No IPv4 address")
         .ip();
 
-    println!(
-        r#"####### CLIENT CONFIG #######
-{{
-    "server": "{}",
-    "server_port": {},
-    "local_port": 1080,
-    "password": "{}",
-    "method": "{}"
-}}
-#############################
-Share URL:"#,
-        server_ip, install.server_port, install.server_password, install.cipher
-    );
-    cmd!(st.sh, "./ssurl -e {CONFIG_FILE}").quiet().run()?;
+    let client_config = json!({
+        "server": server_ip,
+        "server_port": install.server_port,
+        "local_port": 1080,
+        "password": install.server_password,
+        "method": install.cipher,
+    });
+    let share_url = cmd!(st.sh, "./ssurl -e {CONFIG_FILE}").quiet().read()?;
+    println!("####### CLIENT CONFIG #######");
+    println!("{}", to_string_pretty(&client_config)?);
+    println!("#############################");
+    println!("Share URL: {share_url}");
+    println!("#############################");
 
     Ok(())
 }
@@ -175,7 +172,7 @@ pub fn run(st: &State) {
 
 // undo logic
 
-fn remove_files(st: &State) -> Result<(), Box<dyn std::error::Error>> {
+fn real_undo(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     println!("[undo] remove config and binary");
     let to_remove = vec![CONFIG_FILE, SSSERVICE_BIN];
     to_remove.iter().for_each(|f| {
@@ -190,7 +187,7 @@ fn remove_files(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn undo(st: &State) {
-    if let Err(e) = remove_files(&st) {
+    if let Err(e) = real_undo(&st) {
         eprintln!("\nAn error occurred: {e}");
         return;
     }

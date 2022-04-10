@@ -11,4 +11,5 @@ strip = true
 [dependencies]
 clap = { version = "3.1.8", "features" = ["wrap_help"] }
 pnet = "0.29.0"
+serde_json = "1.0.79"
 xshell = "0.2.1"
