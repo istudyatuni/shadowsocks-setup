@@ -38,9 +38,8 @@ fn prepare_state() -> State {
 fn main() {
     let st = prepare_state();
 
-    // disable in dev build and do not show that this code is inactive
-    #[cfg_attr(not(debug_assertions), allow(dead_code))]
-    if sudo::check() != sudo::RunningAs::Root {
+    // disable in dev build
+    if cfg!(not(debug_assertions)) && sudo::check() != sudo::RunningAs::Root {
         eprintln!("This script requires sudo");
         process::exit(1);
     }
