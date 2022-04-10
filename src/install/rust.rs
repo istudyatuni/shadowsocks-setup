@@ -1,4 +1,4 @@
-use std::fs::{create_dir_all, read_to_string, write, OpenOptions};
+use std::fs;
 use std::io::Write;
 
 use pnet::datalink;
@@ -9,7 +9,7 @@ use crate::state::State;
 const SS_VERSION: &str = "v1.14.3";
 const DL_URL: &str = "https://github.com/shadowsocks/shadowsocks-rust/releases/download";
 
-const BIN_FOLDER: &str = "/usr/local/bin/";
+const SSSERVICE_BIN: &str = "/usr/local/bin/ssservice";
 const CONFIG_FILE: &str = "/etc/sssconfig.json";
 
 const SYSTEMD_SERVICE_FOLDER: &str = "/lib/systemd/system";
@@ -35,13 +35,13 @@ fn download_url() -> String {
 }
 
 fn write_append(path: &str, contents: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let mut file = OpenOptions::new().append(true).open(path)?;
+    let mut file = fs::OpenOptions::new().append(true).open(path)?;
     file.write_all(contents.as_bytes())?;
     Ok(())
 }
 
 fn is_config_already_modified(conf_path: &str) -> bool {
-    match read_to_string(conf_path)
+    match fs::read_to_string(conf_path)
         .unwrap_or_default()
         .find(CONFIGS_CHECK_HEADER)
     {
@@ -50,7 +50,7 @@ fn is_config_already_modified(conf_path: &str) -> bool {
     }
 }
 
-// logic
+// install logic
 
 fn download(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     let url = download_url();
@@ -61,12 +61,20 @@ fn download(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     cmd!(st.sh, "sha256sum --check {file}.sha256").run()?;
 
     cmd!(st.sh, "tar -xf {file}").run()?;
-    cmd!(st.sh, "mv ssservice {BIN_FOLDER}").run()?;
+    cmd!(st.sh, "mv ssservice {SSSERVICE_BIN}").run()?;
 
     Ok(())
 }
 
 fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
+    let install;
+    // this match just for unwrap value, this function will
+    // never called with 'Undo' action
+    match st.get_install() {
+        Some(i) => install = i,
+        None => return Ok(()),
+    }
+
     println!("\n[config] create shadowsocks config");
     let sssconfig = format!(
         r#"{{
@@ -75,13 +83,13 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     "password": "{}",
     "method": "{}"
 }}"#,
-        st.server_port, st.server_password, st.cipher
+        install.server_port, install.server_password, install.cipher
     );
-    write(CONFIG_FILE, sssconfig)?;
+    fs::write(CONFIG_FILE, sssconfig)?;
 
     println!("\n[config] create shadowsocks systemd service unit");
-    create_dir_all(SYSTEMD_SERVICE_FOLDER)?;
-    write(SYSTEMD_SERVICE_FILE, SYSTEMD_SERVICE_TEXT)?;
+    fs::create_dir_all(SYSTEMD_SERVICE_FOLDER)?;
+    fs::write(SYSTEMD_SERVICE_FILE, SYSTEMD_SERVICE_TEXT)?;
 
     cmd!(st.sh, "systemctl enable ssserver").run()?;
     cmd!(st.sh, "systemctl restart ssserver").run()?;
@@ -100,7 +108,7 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n[config] opening ports");
     cmd!(st.sh, "ufw allow 22").run()?;
-    let port = st.server_port.clone();
+    let port = install.server_port.clone();
     cmd!(st.sh, "ufw allow {port}").run()?;
     cmd!(st.sh, "ufw --force enable").run()?;
 
@@ -108,6 +116,14 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn print_config(st: &State) -> Result<(), Box<dyn std::error::Error>> {
+    let install;
+    // this match just for unwrap value, this function will
+    // never called with 'Undo' action
+    match st.get_install() {
+        Some(i) => install = i,
+        None => return Ok(()),
+    }
+
     let all_interfaces = datalink::interfaces();
     let default_interface = all_interfaces
         .iter()
@@ -131,7 +147,7 @@ fn print_config(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 }}
 #############################
 Share URL:"#,
-        server_ip, st.server_port, st.server_password, st.cipher
+        server_ip, install.server_port, install.server_password, install.cipher
     );
     cmd!(st.sh, "./ssurl -e {CONFIG_FILE}").quiet().run()?;
 
@@ -141,15 +157,41 @@ Share URL:"#,
 pub fn run(st: &State) {
     if let Err(e) = download(&st) {
         eprintln!("\nAn error occurred when downloading: {e}");
+        return;
     }
     if let Err(e) = configure(&st) {
         eprintln!("\nAn error occurred when configuring: {e}");
+        return;
     }
     if let Err(e) = print_config(&st) {
         eprintln!("\nAn error occurred: {e}");
+        return;
     }
 
     cmd!(st.sh, "reboot").run().unwrap_or_else(|e| {
         eprintln!("Cannot reboot: {e}");
     });
+}
+
+// undo logic
+
+fn remove_files(st: &State) -> Result<(), Box<dyn std::error::Error>> {
+    println!("[undo] remove config and binary");
+    let to_remove = vec![CONFIG_FILE, SSSERVICE_BIN];
+    to_remove.iter().for_each(|f| {
+        if let Err(e) = fs::remove_file(f) {
+            eprintln!("Couldn't remove {f}: {e}");
+        };
+    });
+
+    cmd!(st.sh, "systemctl disable ssserver").run()?;
+
+    Ok(())
+}
+
+pub fn undo(st: &State) {
+    if let Err(e) = remove_files(&st) {
+        eprintln!("\nAn error occurred: {e}");
+        return;
+    }
 }
