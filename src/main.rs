@@ -29,7 +29,7 @@ fn prepare_state() -> State {
             State::new(action)
         }
         _ => {
-            eprintln!("Wrong subcommand");
+            eprintln!("No command");
             process::exit(1);
         }
     }

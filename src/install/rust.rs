@@ -167,15 +167,15 @@ pub fn run(st: &State) {
         return;
     }
     if let Err(e) = download(&st) {
-        eprintln!("\nAn error occurred when downloading: {e}");
+        eprintln!("\n{e}");
         return;
     }
     if let Err(e) = configure(&st) {
-        eprintln!("\nAn error occurred when configuring: {e}");
+        eprintln!("\n{e}");
         return;
     }
     if let Err(e) = print_config(&st) {
-        eprintln!("\nAn error occurred: {e}");
+        eprintln!("\n{e}");
         return;
     }
 
@@ -187,11 +187,11 @@ pub fn run(st: &State) {
 // undo logic
 
 fn real_undo(st: &State) -> Result<(), Box<dyn std::error::Error>> {
-    println!("[undo] remove config and binary");
     let to_remove = vec![CONFIG_FILE, SSSERVICE_BIN];
     to_remove.iter().for_each(|f| {
-        if let Err(e) = fs::remove_file(f) {
-            eprintln!("Couldn't remove {f}: {e}");
+        match fs::remove_file(f) {
+            Ok(_) => println!("[undo] remove {f}"),
+            Err(e) => eprintln!("Couldn't remove {f}: {e}"),
         };
     });
 
