@@ -13,7 +13,7 @@ pub struct Undo {
 
 pub struct Install {
     pub ss_type: String,
-    pub server_port: String,
+    pub server_port: i32,
     pub server_password: String,
     pub cipher: String,
 }
@@ -32,10 +32,10 @@ impl Undo {
 }
 
 impl Install {
-    pub fn new(ss_type: &str, server_port: &str, server_password: &str, cipher: &str) -> Self {
+    pub fn new(ss_type: &str, server_port: i32, server_password: &str, cipher: &str) -> Self {
         Self {
             ss_type: ss_type.to_string(),
-            server_port: server_port.to_string(),
+            server_port,
             server_password: server_password.to_string(),
             cipher: cipher.to_string(),
         }

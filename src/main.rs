@@ -16,7 +16,7 @@ fn prepare_state() -> State {
         Some(("install", subm)) => {
             // this values are required, so can just unwrap
             let ss_type = subm.value_of("TYPE").unwrap();
-            let port = subm.value_of("SERVER_PORT").unwrap();
+            let port: i32 = subm.value_of("SERVER_PORT").unwrap().parse().unwrap();
             let pass = subm.value_of("SERVER_PASSWORD").unwrap();
             let cipher = subm.value_of("CIPHER").unwrap();
             let action = Action::Install(Install::new(ss_type, port, pass, cipher));

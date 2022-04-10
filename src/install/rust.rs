@@ -79,7 +79,7 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n[config] create shadowsocks config");
     let sssconfig = json!({
         "server": "0.0.0.0",
-        "server_port": install.server_port.parse::<i32>()?,
+        "server_port": install.server_port,
         "password": install.server_password,
         "method": install.cipher,
     });
@@ -106,7 +106,7 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n[config] opening ports");
     cmd!(st.sh, "ufw allow 22").run()?;
-    let port = install.server_port.clone();
+    let port = install.server_port.to_string();
     cmd!(st.sh, "ufw allow {port}").run()?;
     cmd!(st.sh, "ufw --force enable").run()?;
 
