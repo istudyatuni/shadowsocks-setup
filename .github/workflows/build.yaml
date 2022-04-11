@@ -6,7 +6,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  BIN_NAME: sssetup
 
 jobs:
   build:
@@ -26,9 +25,9 @@ jobs:
       - name: Preparing artifacts
         run: |
           mkdir release
-          mv target/release/shadowsocks-setup release/$BIN_NAME
+          mv target/release/sssetup release/
           cd release
-          tar caf $BIN_NAME-$GITHUB_REF_NAME.tar.xz $BIN_NAME
+          tar cavf sssetup-$GITHUB_REF_NAME.tar.xz sssetup
       - name: Upload Github Assets
         uses: softprops/action-gh-release@v1
         env:
