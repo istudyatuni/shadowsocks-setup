@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::Write;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use pnet::datalink;
 use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
@@ -50,7 +50,7 @@ fn is_config_already_modified(conf_path: &str) -> bool {
 // install logic
 
 fn check_requirements(sh: &Shell) -> Result<()> {
-    println!("[prepare] checking requirements");
+    println!("[prepare] checking required executables");
     let bin_reqs = vec![
         "wget",
         "sha256sum",
@@ -60,8 +60,16 @@ fn check_requirements(sh: &Shell) -> Result<()> {
         "sysctl",
         "ufw",
     ];
+    let mut missed = false;
     for r in bin_reqs {
-        cmd!(sh, "which {r}").quiet().run()?;
+        if cmd!(sh, "which {r}").quiet().ignore_stdout().run().is_err() {
+            missed = true;
+            eprintln!("[error] {r} not found");
+        }
+    }
+
+    if missed {
+        bail!("some required executables is not found")
     }
 
     Ok(())
