@@ -14,6 +14,31 @@ mod state;
 
 const ARTIFACTS_DIR: &str = "shadowsocks-artifacts";
 
+fn main() -> Result<()> {
+    let st = prepare_state()?;
+
+    // disable in dev build
+    if cfg!(not(debug_assertions)) && sudo::check() != sudo::RunningAs::Root {
+        bail!("This script requires sudo");
+    }
+
+    create_dir_all(ARTIFACTS_DIR).context("failed to create artifacts dir")?;
+    st.sh.change_dir(ARTIFACTS_DIR);
+
+    match &st.action {
+        Action::Install(install @ Install { ss_type, .. }) => match ss_type {
+            SsType::Rust => install::rust::install(&st.sh, install)?,
+            SsType::Libev => bail!("libev is not implemented"),
+        },
+        Action::Undo(Undo { ss_type }) => match ss_type {
+            SsType::Rust => install::rust::undo(&st.sh)?,
+            SsType::Libev => bail!("libev is not implemented"),
+        },
+    }
+
+    Ok(())
+}
+
 fn get_ss_version(ss_type: SsType, provided: Option<&str>) -> Result<String> {
     if let Some(version) = provided {
         return Ok(version.to_string());
@@ -48,29 +73,4 @@ fn prepare_state() -> Result<State> {
         Args::Undo { ty } => State::new(Action::Undo(Undo::new(ty))),
     };
     Ok(st)
-}
-
-fn main() -> Result<()> {
-    let st = prepare_state()?;
-
-    // disable in dev build
-    if cfg!(not(debug_assertions)) && sudo::check() != sudo::RunningAs::Root {
-        bail!("This script requires sudo");
-    }
-
-    create_dir_all(ARTIFACTS_DIR).context("failed to create artifacts dir")?;
-    st.sh.change_dir(ARTIFACTS_DIR);
-
-    match &st.action {
-        Action::Install(install @ Install { ss_type, .. }) => match ss_type {
-            SsType::Rust => install::rust::install(&st.sh, install)?,
-            SsType::Libev => bail!("libev is not implemented"),
-        },
-        Action::Undo(Undo { ss_type }) => match ss_type {
-            SsType::Rust => install::rust::undo(&st.sh)?,
-            SsType::Libev => bail!("libev is not implemented"),
-        },
-    }
-
-    Ok(())
 }

@@ -25,7 +25,48 @@ const JOURNALD_CONF_TAIL: &str = include_str!("../../static/journald-tail.conf")
 const SYSCTL_CONF: &str = "/etc/sysctl.conf";
 const SYSCTL_CONF_TAIL: &str = include_str!("../../static/sysctl-tail.conf");
 
-// common
+pub fn install(sh: &Shell, install: &Install) -> Result<()> {
+    check_requirements(sh)?;
+    download(sh, install)?;
+    configure(sh, install)?;
+    print_config(sh, install)?;
+
+    cmd!(sh, "reboot").run().context("failed to reboot")?;
+
+    Ok(())
+}
+
+pub fn undo(sh: &Shell) -> Result<()> {
+    cmd!(sh, "systemctl disable ssserver").run()?;
+
+    let to_backup = [CONFIG_FILE];
+    for f in to_backup {
+        let mut new_name = format!("{f}.bak");
+        // if backup already exists, find first non-existing name like "{f}.bak1"
+        if std::fs::exists(&new_name).is_ok_and(|exists| exists) {
+            if let Some(name) = (1..)
+                .map(|i| format!("{new_name}{i}"))
+                .find(|name| fs::exists(name).is_ok_and(|exists| exists))
+            {
+                new_name = name;
+            }
+        }
+        match fs::rename(f, &new_name) {
+            Ok(_) => println!("[undo] saved {f} to {new_name}"),
+            Err(e) => eprintln!("Couldn't remove {f}: {e}"),
+        };
+    }
+
+    let to_remove = [SSSERVICE_BIN, SYSTEMD_SERVICE_FILE];
+    for f in to_remove {
+        match fs::remove_file(f) {
+            Ok(_) => println!("[undo] removed {f}"),
+            Err(e) => eprintln!("Couldn't remove {f}: {e}"),
+        };
+    }
+
+    Ok(())
+}
 
 fn archive_filename(version: &str) -> String {
     format!("shadowsocks-{version}.x86_64-unknown-linux-gnu.tar.xz")
@@ -46,8 +87,6 @@ fn is_config_already_modified(conf_path: &str) -> bool {
         .unwrap_or_default()
         .contains(CONFIGS_CHECK_HEADER)
 }
-
-// install logic
 
 fn check_requirements(sh: &Shell) -> Result<()> {
     println!("[prepare] checking required executables");
@@ -157,51 +196,6 @@ fn print_config(sh: &Shell, install: &Install) -> Result<()> {
     println!("#############################");
     println!("Share URL: {share_url}");
     println!("#############################");
-
-    Ok(())
-}
-
-pub fn install(sh: &Shell, install: &Install) -> Result<()> {
-    check_requirements(sh)?;
-    download(sh, install)?;
-    configure(sh, install)?;
-    print_config(sh, install)?;
-
-    cmd!(sh, "reboot").run().context("failed to reboot")?;
-
-    Ok(())
-}
-
-// undo logic
-
-pub fn undo(sh: &Shell) -> Result<()> {
-    cmd!(sh, "systemctl disable ssserver").run()?;
-
-    let to_backup = [CONFIG_FILE];
-    for f in to_backup {
-        let mut new_name = format!("{f}.bak");
-        // if backup already exists, find first non-existing name like "{f}.bak1"
-        if std::fs::exists(&new_name).is_ok_and(|exists| exists) {
-            if let Some(name) = (1..)
-                .map(|i| format!("{new_name}{i}"))
-                .find(|name| fs::exists(name).is_ok_and(|exists| exists))
-            {
-                new_name = name;
-            }
-        }
-        match fs::rename(f, &new_name) {
-            Ok(_) => println!("[undo] saved {f} to {new_name}"),
-            Err(e) => eprintln!("Couldn't remove {f}: {e}"),
-        };
-    }
-
-    let to_remove = [SSSERVICE_BIN, SYSTEMD_SERVICE_FILE];
-    for f in to_remove {
-        match fs::remove_file(f) {
-            Ok(_) => println!("[undo] removed {f}"),
-            Err(e) => eprintln!("Couldn't remove {f}: {e}"),
-        };
-    }
 
     Ok(())
 }
