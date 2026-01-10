@@ -1,12 +1,12 @@
 use std::fs;
 use std::io::Write;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use pnet::datalink;
 use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
 
-use crate::state::{Action, Install, State};
+use crate::state::Install;
 
 const DL_URL: &str = "https://github.com/shadowsocks/shadowsocks-rust/releases/download";
 
@@ -110,7 +110,7 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
         cmd!(sh, "sysctl -p").run()?;
     }
 
-    println!("\n[config] opening ports");
+    println!("\n[config] opening firewall ports");
     cmd!(sh, "ufw allow 22").run()?;
     let port = install.server_port.to_string();
     cmd!(sh, "ufw allow {port}").run()?;
@@ -119,14 +119,7 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
     Ok(())
 }
 
-fn print_config(st: &State) -> Result<()> {
-    // this match just for unwrap value, this function will
-    // never called with 'Undo' action
-    let install = match st.get_install() {
-        Some(i) => i,
-        None => return Ok(()),
-    };
-
+fn print_config(sh: &Shell, install: &Install) -> Result<()> {
     let all_interfaces = datalink::interfaces();
     let default_interface = all_interfaces
         .iter()
@@ -148,9 +141,8 @@ fn print_config(st: &State) -> Result<()> {
     });
     let client_config_path = "sssconfig-client.json";
     let client_config = to_string_pretty(&client_config)?;
-    std::fs::write(client_config_path, &client_config)
-        .context("failed to write client config")?;
-    let share_url = cmd!(st.sh, "./ssurl -e {client_config_path}").quiet().read()?;
+    std::fs::write(client_config_path, &client_config).context("failed to write client config")?;
+    let share_url = cmd!(sh, "./ssurl -e {client_config_path}").quiet().read()?;
 
     println!("####### CLIENT CONFIG #######");
     println!("{client_config}");
@@ -161,25 +153,21 @@ fn print_config(st: &State) -> Result<()> {
     Ok(())
 }
 
-pub fn install(st: &State) -> Result<()> {
-    let Action::Install(ref install) = st.action else {
-        bail!("wrong action type");
-    };
+pub fn install(sh: &Shell, install: &Install) -> Result<()> {
+    check_requirements(sh)?;
+    download(sh, install)?;
+    configure(sh, install)?;
+    print_config(sh, install)?;
 
-    check_requirements(&st.sh)?;
-    download(&st.sh, install)?;
-    configure(&st.sh, install)?;
-    print_config(st)?;
-
-    cmd!(st.sh, "reboot").run().context("failed to reboot")?;
+    cmd!(sh, "reboot").run().context("failed to reboot")?;
 
     Ok(())
 }
 
 // undo logic
 
-fn real_undo(st: &State) -> Result<()> {
-    cmd!(st.sh, "systemctl disable ssserver").run()?;
+pub fn undo(sh: &Shell) -> Result<()> {
+    cmd!(sh, "systemctl disable ssserver").run()?;
 
     let to_remove = [CONFIG_FILE, SSSERVICE_BIN];
     to_remove.iter().for_each(|f| {
@@ -190,10 +178,4 @@ fn real_undo(st: &State) -> Result<()> {
     });
 
     Ok(())
-}
-
-pub fn undo(st: &State) {
-    if let Err(e) = real_undo(st) {
-        eprintln!("\nAn error occurred: {e}");
-    }
 }

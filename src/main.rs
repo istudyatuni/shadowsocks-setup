@@ -62,12 +62,12 @@ fn main() -> Result<()> {
     st.sh.change_dir(ARTIFACTS_DIR);
 
     match &st.action {
-        Action::Install(Install { ss_type, .. }) => match ss_type {
-            SsType::Rust => install::rust::install(&st),
+        Action::Install(install @ Install { ss_type, .. }) => match ss_type {
+            SsType::Rust => install::rust::install(&st.sh, install)?,
             SsType::Libev => bail!("libev is not implemented"),
         },
         Action::Undo(Undo { ss_type }) => match ss_type {
-            SsType::Rust => install::rust::undo(&st),
+            SsType::Rust => install::rust::undo(&st.sh)?,
             SsType::Libev => bail!("libev is not implemented"),
         },
     }

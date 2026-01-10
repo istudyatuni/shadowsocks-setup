@@ -58,10 +58,4 @@ impl State {
         });
         Self { sh, action }
     }
-    pub fn get_install(&self) -> Option<&Install> {
-        match &self.action {
-            Action::Install(i) => Some(i),
-            _ => None,
-        }
-    }
 }
