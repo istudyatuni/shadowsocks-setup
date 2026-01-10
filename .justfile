@@ -7,7 +7,7 @@ target := "x86_64-unknown-linux-musl"
 # build static binary
 build: && pack-release
 	@# CARGO_HOME and /tmp/.cargo is used to use local cargo download cache
-	docker run --rm -it \
+	docker run --rm \
 		-v "$(pwd)":/build \
 		-v "$HOME/.cargo":/tmp/.cargo \
 		-w /build \
