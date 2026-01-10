@@ -146,9 +146,14 @@ fn print_config(st: &State) -> Result<()> {
         "password": install.server_password,
         "method": install.cipher,
     });
-    let share_url = cmd!(st.sh, "./ssurl -e {CONFIG_FILE}").quiet().read()?;
+    let client_config_path = "sssconfig-client.json";
+    let client_config = to_string_pretty(&client_config)?;
+    std::fs::write(client_config_path, &client_config)
+        .context("failed to write client config")?;
+    let share_url = cmd!(st.sh, "./ssurl -e {client_config_path}").quiet().read()?;
+
     println!("####### CLIENT CONFIG #######");
-    println!("{}", to_string_pretty(&client_config)?);
+    println!("{client_config}");
     println!("#############################");
     println!("Share URL: {share_url}");
     println!("#############################");
