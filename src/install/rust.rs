@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::Write;
 
+use anyhow::Result;
 use pnet::datalink;
 use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
@@ -34,7 +35,7 @@ fn download_url(version: &str) -> String {
     DL_URL.to_owned() + "/" + version + "/" + archive_filename(version).as_str()
 }
 
-fn write_append(path: &str, contents: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn write_append(path: &str, contents: &str) -> Result<()> {
     let mut file = fs::OpenOptions::new().append(true).open(path)?;
     file.write_all(contents.as_bytes())?;
     Ok(())
@@ -48,7 +49,7 @@ fn is_config_already_modified(conf_path: &str) -> bool {
 
 // install logic
 
-fn check_requirements(sh: &Shell) -> Result<(), Box<dyn std::error::Error>> {
+fn check_requirements(sh: &Shell) -> Result<()> {
     println!("[prepare] checking requirements");
     let bin_reqs = vec![
         "wget",
@@ -66,7 +67,7 @@ fn check_requirements(sh: &Shell) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn download(sh: &Shell, install: &Install) -> Result<(), Box<dyn std::error::Error>> {
+fn download(sh: &Shell, install: &Install) -> Result<()> {
     let url = download_url(&install.version);
     cmd!(sh, "wget --no-clobber {url}").run()?;
     cmd!(sh, "wget --no-clobber {url}.sha256").run()?;
@@ -80,7 +81,7 @@ fn download(sh: &Shell, install: &Install) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
-fn configure(sh: &Shell, install: &Install) -> Result<(), Box<dyn std::error::Error>> {
+fn configure(sh: &Shell, install: &Install) -> Result<()> {
     println!("\n[config] create shadowsocks config");
     let sssconfig = json!({
         "server": "0.0.0.0",
@@ -118,7 +119,7 @@ fn configure(sh: &Shell, install: &Install) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-fn print_config(st: &State) -> Result<(), Box<dyn std::error::Error>> {
+fn print_config(st: &State) -> Result<()> {
     // this match just for unwrap value, this function will
     // never called with 'Undo' action
     let install = match st.get_install() {
@@ -185,7 +186,7 @@ pub fn install(st: &State) {
 
 // undo logic
 
-fn real_undo(st: &State) -> Result<(), Box<dyn std::error::Error>> {
+fn real_undo(st: &State) -> Result<()> {
     let to_remove = [CONFIG_FILE, SSSERVICE_BIN];
     to_remove.iter().for_each(|f| {
         match fs::remove_file(f) {

@@ -13,6 +13,7 @@ path = "src/main.rs"
 strip = true
 
 [dependencies]
+anyhow = "1.0.100"
 clap = { version = "4.5.54", features = [ "derive", "wrap_help" ] }
 pnet = "0.35.0"
 serde_json = "1.0.149"
