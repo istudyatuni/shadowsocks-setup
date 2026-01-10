@@ -1,44 +1,61 @@
-use clap::{Arg, Command};
+use std::fmt::Display;
 
-pub fn define_command_line_options(app: Command<'_>) -> Command<'_> {
-    app.subcommand(
-        Command::new("install")
-            .about("Install shadowsocks")
-            .arg(
-                Arg::new("TYPE")
-                    .default_value("rust")
-                    .possible_values(["rust", "libev"])
-                    .help("Shadowsocks installation type"),
-            )
-            .arg(
-                Arg::new("SERVER_PORT")
-                    .long("port")
-                    .required(true)
-                    .takes_value(true)
-                    .validator(|p| p.parse::<i32>())
-                    .help("Server port"),
-            )
-            .arg(
-                Arg::new("SERVER_PASSWORD")
-                    .long("password")
-                    .required(true)
-                    .takes_value(true)
-                    .help("Server password"),
-            )
-            .arg(
-                Arg::new("CIPHER")
-                    .long("cipher")
-                    .default_value("aes-256-gcm")
-                    .possible_values(["aes-256-gcm", "chacha20-ietf-poly1305", "aes-128-gcm"])
-                    .help("AEAD cipher"),
-            ),
-    )
-    .subcommand(
-        Command::new("undo").arg(
-            Arg::new("TYPE")
-                .default_value("rust")
-                .possible_values(["rust", "libev"])
-                .help("Type of installation to undo"),
-        ),
-    )
+use clap::{Parser, ValueEnum};
+
+/// Shadowsocks setup
+#[derive(Debug, Parser)]
+pub enum Args {
+    /// Install shadowsocks
+    Install {
+        /// Shadowsocks installation type
+        #[arg(long = "type", default_value = "rust", id = "TYPE")]
+        ty: SsType,
+
+        /// Server port
+        #[arg(long)]
+        port: u32,
+
+        /// Server password
+        #[arg(long)]
+        password: String,
+
+        /// AEAD cipher
+        #[arg(long, default_value_t = Cipher::Aes256Gcm)]
+        cipher: Cipher,
+    },
+    /// Install shadowsocks
+    Undo {
+        /// Shadowsocks installation type
+        #[arg(long = "type", default_value = "rust", id = "TYPE")]
+        ty: SsType,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum SsType {
+    Rust,
+    #[value(skip)]
+    #[expect(unused)]
+    Libev,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum Cipher {
+    #[value(name = "aes-256-gcm")]
+    Aes256Gcm,
+    #[value(name = "chacha20-ietf-poly1305")]
+    Chacha20IetfPoly1305,
+    #[value(name = "aes-128-gcm")]
+    Aes128Gcm,
+}
+
+impl Display for Cipher {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Cipher::Aes256Gcm => "aes-256-gcm",
+            Cipher::Chacha20IetfPoly1305 => "chacha20-ietf-poly1305",
+            Cipher::Aes128Gcm => "aes-128-gcm",
+        };
+        s.fmt(f)
+    }
 }

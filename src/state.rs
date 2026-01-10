@@ -2,18 +2,20 @@ use std::process;
 
 use xshell::Shell;
 
+use crate::args::SsType;
+
 pub enum Action {
     Install(Install),
     Undo(Undo),
 }
 
 pub struct Undo {
-    pub ss_type: String,
+    pub ss_type: SsType,
 }
 
 pub struct Install {
-    pub ss_type: String,
-    pub server_port: i32,
+    pub ss_type: SsType,
+    pub server_port: u32,
     pub server_password: String,
     pub cipher: String,
 }
@@ -24,17 +26,15 @@ pub struct State {
 }
 
 impl Undo {
-    pub fn new(ss_type: &str) -> Self {
-        Self {
-            ss_type: ss_type.to_string(),
-        }
+    pub fn new(ss_type: SsType) -> Self {
+        Self { ss_type }
     }
 }
 
 impl Install {
-    pub fn new(ss_type: &str, server_port: i32, server_password: &str, cipher: &str) -> Self {
+    pub fn new(ss_type: SsType, server_port: u32, server_password: &str, cipher: &str) -> Self {
         Self {
-            ss_type: ss_type.to_string(),
+            ss_type,
             server_port,
             server_password: server_password.to_string(),
             cipher: cipher.to_string(),

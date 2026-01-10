@@ -1,7 +1,8 @@
 use std::fs::create_dir_all;
 use std::process;
 
-use clap::Command;
+use args::{Args, SsType};
+use clap::Parser;
 use state::{Action, Install, State, Undo};
 
 mod args;
@@ -9,29 +10,21 @@ mod install;
 mod state;
 
 fn prepare_state() -> State {
-    let matches =
-        args::define_command_line_options(Command::new("Shadowsocks setup")).get_matches();
+    let args = Args::parse();
 
-    match matches.subcommand() {
-        Some(("install", subm)) => {
-            // this values are required, so can just unwrap
-            let ss_type = subm.value_of("TYPE").unwrap();
-            let port: i32 = subm.value_of("SERVER_PORT").unwrap().parse().unwrap();
-            let pass = subm.value_of("SERVER_PASSWORD").unwrap();
-            let cipher = subm.value_of("CIPHER").unwrap();
-            let action = Action::Install(Install::new(ss_type, port, pass, cipher));
-
-            State::new(action)
-        }
-        Some(("undo", subm)) => {
-            let ss_type = subm.value_of("TYPE").unwrap();
-            let action = Action::Undo(Undo::new(ss_type));
-            State::new(action)
-        }
-        _ => {
-            eprintln!("No command");
-            process::exit(1);
-        }
+    match args {
+        Args::Install {
+            ty,
+            port,
+            password,
+            cipher,
+        } => State::new(Action::Install(Install::new(
+            ty,
+            port,
+            &password,
+            &cipher.to_string(),
+        ))),
+        Args::Undo { ty } => State::new(Action::Undo(Undo::new(ty))),
     }
 }
 
@@ -52,15 +45,13 @@ fn main() {
     st.sh.change_dir(ARTIFACTS_DIR);
 
     match &st.action {
-        Action::Install(Install { ss_type, .. }) => match ss_type.as_str() {
-            "rust" => install::rust::run(&st),
-            "libev" => unimplemented!("libev not implemented"),
-            _ => (),
+        Action::Install(Install { ss_type, .. }) => match ss_type {
+            SsType::Rust => install::rust::run(&st),
+            SsType::Libev => eprintln!("libev is not implemented"),
         },
-        Action::Undo(Undo { ss_type }) => match ss_type.as_str() {
-            "rust" => install::rust::undo(&st),
-            "libev" => unimplemented!("libev not implemented"),
-            _ => (),
+        Action::Undo(Undo { ss_type }) => match ss_type {
+            SsType::Rust => install::rust::undo(&st),
+            SsType::Libev => eprintln!("libev is not implemented"),
         },
     }
 }
