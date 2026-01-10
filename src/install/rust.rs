@@ -24,6 +24,10 @@ const SYSCTL_CONF: &str = "/etc/sysctl.d/90-ssserver-tweaks.conf";
 const SYSCTL_CONF_DATA: &str = include_str!("../../static/sysctl.conf");
 
 pub fn install(sh: &Shell, install: &Install) -> Result<()> {
+    if is_already_installed(sh, &install.version) {
+        bail!("shadowsocks {} is already installed", install.version);
+    }
+
     check_requirements(sh)?;
     download(sh, install)?;
     configure(sh, install)?;
@@ -103,6 +107,25 @@ fn check_requirements(sh: &Shell) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn is_already_installed(sh: &Shell, version: &str) -> bool {
+    let exe = PathBuf::from(SSSERVICE_BIN);
+
+    if !exe.exists() {
+        return false;
+    }
+
+    match cmd!(sh, "{exe} -V").output() {
+        Ok(output) => match std::str::from_utf8(&output.stdout) {
+            Ok(output) => output
+                .split_whitespace()
+                .last()
+                .is_some_and(|v| version == format!("v{v}")),
+            Err(_) => false,
+        },
+        Err(_) => false,
+    }
 }
 
 fn download(sh: &Shell, install: &Install) -> Result<()> {

@@ -1,3 +1,9 @@
+## Unreleased
+
+### Features
+
+- Check if shadowsocks already installed
+
 ## 0.1.4 (2026-01-10)
 
 ### Features
