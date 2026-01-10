@@ -41,10 +41,10 @@ pub fn undo(sh: &Shell) -> Result<()> {
     for f in to_backup {
         let mut new_name = format!("{f}.bak");
         // if backup already exists, find first non-existing name like "{f}.bak1"
-        if std::fs::exists(&new_name).is_ok_and(|exists| exists) {
+        if PathBuf::from(&new_name).exists() {
             if let Some(name) = (1..)
                 .map(|i| format!("{new_name}{i}"))
-                .find(|name| fs::exists(name).is_ok_and(|exists| exists))
+                .find(|name| PathBuf::from(name).exists())
             {
                 new_name = name;
             }
