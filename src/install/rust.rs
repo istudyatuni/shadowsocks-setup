@@ -98,13 +98,13 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
     cmd!(sh, "systemctl enable ssserver").run()?;
     cmd!(sh, "systemctl restart ssserver").run()?;
 
-    if is_config_already_modified(JOURNALD_CONF) {
-        println!("\n[config] tweak log storing policy");
+    if !is_config_already_modified(JOURNALD_CONF) {
+        println!("\n[config] tweaking log storing policy in {JOURNALD_CONF}");
         write_append(JOURNALD_CONF, JOURNALD_CONF_TAIL)?;
     }
 
-    if is_config_already_modified(SYSCTL_CONF) {
-        println!("\n[config] tweak kernel");
+    if !is_config_already_modified(SYSCTL_CONF) {
+        println!("\n[config] tweaking kernel in {SYSCTL_CONF}");
         write_append(SYSCTL_CONF, SYSCTL_CONF_TAIL)?;
         // apply
         cmd!(sh, "sysctl -p").run()?;
