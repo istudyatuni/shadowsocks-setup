@@ -44,8 +44,7 @@ fn write_append(path: &str, contents: &str) -> Result<(), Box<dyn std::error::Er
 fn is_config_already_modified(conf_path: &str) -> bool {
     fs::read_to_string(conf_path)
         .unwrap_or_default()
-        .find(CONFIGS_CHECK_HEADER)
-        .is_some()
+        .contains(CONFIGS_CHECK_HEADER)
 }
 
 // install logic
@@ -83,13 +82,12 @@ fn download(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
-    let install;
     // this match just for unwrap value, this function will
     // never called with 'Undo' action
-    match st.get_install() {
-        Some(i) => install = i,
+    let install = match st.get_install() {
+        Some(i) => i,
         None => return Ok(()),
-    }
+    };
 
     println!("\n[config] create shadowsocks config");
     let sssconfig = json!({
@@ -129,13 +127,12 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn print_config(st: &State) -> Result<(), Box<dyn std::error::Error>> {
-    let install;
     // this match just for unwrap value, this function will
     // never called with 'Undo' action
-    match st.get_install() {
-        Some(i) => install = i,
+    let install = match st.get_install() {
+        Some(i) => i,
         None => return Ok(()),
-    }
+    };
 
     let all_interfaces = datalink::interfaces();
     let default_interface = all_interfaces
@@ -171,15 +168,15 @@ pub fn run(st: &State) {
         eprintln!("\n{e}");
         return;
     }
-    if let Err(e) = download(&st) {
+    if let Err(e) = download(st) {
         eprintln!("\n{e}");
         return;
     }
-    if let Err(e) = configure(&st) {
+    if let Err(e) = configure(st) {
         eprintln!("\n{e}");
         return;
     }
-    if let Err(e) = print_config(&st) {
+    if let Err(e) = print_config(st) {
         eprintln!("\n{e}");
         return;
     }
@@ -192,7 +189,7 @@ pub fn run(st: &State) {
 // undo logic
 
 fn real_undo(st: &State) -> Result<(), Box<dyn std::error::Error>> {
-    let to_remove = vec![CONFIG_FILE, SSSERVICE_BIN];
+    let to_remove = [CONFIG_FILE, SSSERVICE_BIN];
     to_remove.iter().for_each(|f| {
         match fs::remove_file(f) {
             Ok(_) => println!("[undo] remove {f}"),
@@ -206,8 +203,7 @@ fn real_undo(st: &State) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn undo(st: &State) {
-    if let Err(e) = real_undo(&st) {
+    if let Err(e) = real_undo(st) {
         eprintln!("\nAn error occurred: {e}");
-        return;
     }
 }
