@@ -11,26 +11,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
-          toolchain: stable
-      - uses: Swatinem/rust-cache@v1
-      - name: Building
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
-      - name: Preparing artifacts
-        run: |
-          mkdir release
-          mv target/release/sssetup release/
-          cd release
-          tar cavf sssetup-$GITHUB_REF_NAME.tar.xz sssetup
-      - name: Upload Github Assets
-        uses: softprops/action-gh-release@v1
+          toolchain: '1.92'
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: install tools
+        run: nix profile add "nixpkgs#just" && just -V
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: just build
+      - name: upload release artifact
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: release/*.tar.xz
+          files: target/*.tar.xz
