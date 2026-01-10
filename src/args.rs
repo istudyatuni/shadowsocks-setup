@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, ops::Deref, str::FromStr};
 
 use clap::{Parser, ValueEnum};
 
@@ -26,7 +26,7 @@ pub enum Args {
 
         /// Shadowsocks version to install
         #[arg(long)]
-        version: Option<String>,
+        version: Option<Version>,
     },
     /// Install shadowsocks
     Undo {
@@ -62,5 +62,30 @@ impl Display for Cipher {
             Cipher::Aes128Gcm => "aes-128-gcm",
         };
         s.fmt(f)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Version(String);
+
+impl FromStr for Version {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim_start_matches('v');
+        let parts: Result<Vec<u32>, _> = s.split('.').map(|v| v.parse()).collect();
+        if parts.is_err() {
+            return Err("invalid number part in version");
+        }
+
+        Ok(Self(s.to_string()))
+    }
+}
+
+impl Deref for Version {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_str()
     }
 }

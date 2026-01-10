@@ -41,7 +41,7 @@ fn main() -> Result<()> {
 
 fn get_ss_version(ss_type: SsType, provided: Option<&str>) -> Result<String> {
     if let Some(version) = provided {
-        return Ok(version.to_string());
+        return Ok(format!("v{version}"));
     }
     let (owner, repo) = match ss_type {
         SsType::Rust => ("shadowsocks", "shadowsocks-rust"),
