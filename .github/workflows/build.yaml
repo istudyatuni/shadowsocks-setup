@@ -23,7 +23,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - run: just build
+      - run: just build-ci
       - name: upload release artifact
         uses: softprops/action-gh-release@v2
         env:

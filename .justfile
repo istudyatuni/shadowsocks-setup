@@ -4,8 +4,16 @@ target := "x86_64-unknown-linux-musl"
 @default:
 	just --list --unsorted
 
+# build static binary in ci
+build-ci: build-static && pack-release
+	@# fix permissions after building with docker
+	sudo chown -R $(whoami) target
+
 # build static binary
-build: && pack-release
+build: build-static pack-release
+
+[private]
+build-static:
 	@# CARGO_HOME and /tmp/.cargo is used to use local cargo download cache
 	docker run --rm \
 		-v "$(pwd)":/build \
