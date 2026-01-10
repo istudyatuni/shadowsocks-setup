@@ -24,8 +24,8 @@ pub enum Args {
         cipher: Cipher,
 
         /// Shadowsocks version to install
-        #[arg(long, default_value = "v1.24.0")]
-        version: String,
+        #[arg(long)]
+        version: Option<String>,
     },
     /// Install shadowsocks
     Undo {

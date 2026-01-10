@@ -1,39 +1,57 @@
 use std::fs::create_dir_all;
 
 use anyhow::{bail, Context, Result};
-use args::{Args, SsType};
 use clap::Parser;
+
+use args::{Args, SsType};
+use github::get_latest_release_tag;
 use state::{Action, Install, State, Undo};
 
 mod args;
+mod github;
 mod install;
 mod state;
 
 const ARTIFACTS_DIR: &str = "shadowsocks-artifacts";
 
-fn prepare_state() -> State {
+fn get_ss_version(ss_type: SsType, provided: Option<&str>) -> Result<String> {
+    if let Some(version) = provided {
+        return Ok(version.to_string());
+    }
+    let (owner, repo) = match ss_type {
+        SsType::Rust => ("shadowsocks", "shadowsocks-rust"),
+        SsType::Libev => ("shadowsocks", "shadowsocks-libev"),
+    };
+    get_latest_release_tag(owner, repo).context("failed to get latest release")
+}
+
+fn prepare_state() -> Result<State> {
     let args = Args::parse();
 
-    match args {
+    let st = match args {
         Args::Install {
             ty,
             port,
             password,
             cipher,
             version,
-        } => State::new(Action::Install(Install::new(
-            ty,
-            port,
-            &password,
-            &cipher.to_string(),
-            &version,
-        ))),
+        } => {
+            let version = get_ss_version(ty, version.as_deref())?;
+            State::new(Action::Install(Install::new(
+                ty,
+                port,
+                &password,
+                &cipher.to_string(),
+                &version,
+            )))
+        }
         Args::Undo { ty } => State::new(Action::Undo(Undo::new(ty))),
-    }
+    };
+    Ok(st)
 }
 
 fn main() -> Result<()> {
-    let st = prepare_state();
+    let st = prepare_state()?;
 
     // disable in dev build
     if cfg!(not(debug_assertions)) && sudo::check() != sudo::RunningAs::Root {

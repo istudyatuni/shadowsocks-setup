@@ -16,6 +16,8 @@ strip = true
 anyhow = "1.0.100"
 clap = { version = "4.5.54", features = [ "derive", "wrap_help" ] }
 pnet = "0.35.0"
+reqwest = { version = "0.13.1", default-features = false, features = ["rustls", "blocking", "json"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sudo = "0.6.0"
 xshell = "0.2.7"
