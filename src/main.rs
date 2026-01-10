@@ -14,6 +14,9 @@ mod state;
 
 const ARTIFACTS_DIR: &str = "shadowsocks-artifacts";
 
+const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn main() -> Result<()> {
     let st = prepare_state()?;
 

@@ -2,13 +2,15 @@ use anyhow::{Context, Result};
 use reqwest::blocking::Client;
 use serde::Deserialize;
 
+use crate::{PKG_NAME, PKG_VERSION};
+
 pub fn get_latest_release_tag(owner: &str, repo: &str) -> Result<String> {
     let url = format!("https://api.github.com/repos/{owner}/{repo}/releases/latest");
 
     let resp = Client::new()
         .get(url)
         .header("accept", "application/vnd.github+json")
-        .header("user-agent", "curl/8.17.0")
+        .header("user-agent", format!("{PKG_NAME}/{PKG_VERSION}"))
         .header("x-github-api-version", "2022-11-28")
         .send()
         .context("failed to send request for latest github release")?
