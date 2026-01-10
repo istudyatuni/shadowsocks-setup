@@ -1,5 +1,4 @@
-use std::fs;
-use std::io::Write;
+use std::{fs, path::PathBuf};
 
 use anyhow::{bail, Context, Result};
 use pnet::datalink;
@@ -17,13 +16,12 @@ const SYSTEMD_SERVICE_FOLDER: &str = "/lib/systemd/system";
 const SYSTEMD_SERVICE_FILE: &str = "/lib/systemd/system/ssserver.service";
 const SYSTEMD_SERVICE_TEXT: &str = include_str!("../../static/ssserver.service");
 
-const CONFIGS_CHECK_HEADER: &str = "# shadowsocks tweaks";
+const JOURNALD_CONF_FOLDER: &str = "/usr/lib/systemd/journald.conf.d";
+const JOURNALD_CONF: &str = "/usr/lib/systemd/journald.conf.d/90-ssserver-tweaks.conf";
+const JOURNALD_CONF_DATA: &str = include_str!("../../static/journald-tail.conf");
 
-const JOURNALD_CONF: &str = "/etc/systemd/journald.conf";
-const JOURNALD_CONF_TAIL: &str = include_str!("../../static/journald-tail.conf");
-
-const SYSCTL_CONF: &str = "/etc/sysctl.conf";
-const SYSCTL_CONF_TAIL: &str = include_str!("../../static/sysctl-tail.conf");
+const SYSCTL_CONF: &str = "/etc/sysctl.d/90-ssserver-tweaks.conf";
+const SYSCTL_CONF_DATA: &str = include_str!("../../static/sysctl.conf");
 
 pub fn install(sh: &Shell, install: &Install) -> Result<()> {
     check_requirements(sh)?;
@@ -57,7 +55,12 @@ pub fn undo(sh: &Shell) -> Result<()> {
         };
     }
 
-    let to_remove = [SSSERVICE_BIN, SYSTEMD_SERVICE_FILE];
+    let to_remove = [
+        SSSERVICE_BIN,
+        SYSTEMD_SERVICE_FILE,
+        SYSCTL_CONF,
+        JOURNALD_CONF,
+    ];
     for f in to_remove {
         match fs::remove_file(f) {
             Ok(_) => println!("[undo] removed {f}"),
@@ -74,18 +77,6 @@ fn archive_filename(version: &str) -> String {
 
 fn download_url(version: &str) -> String {
     DL_URL.to_owned() + "/" + version + "/" + archive_filename(version).as_str()
-}
-
-fn write_append(path: &str, contents: &str) -> Result<()> {
-    let mut file = fs::OpenOptions::new().append(true).open(path)?;
-    file.write_all(contents.as_bytes())?;
-    Ok(())
-}
-
-fn is_config_already_modified(conf_path: &str) -> bool {
-    fs::read_to_string(conf_path)
-        .unwrap_or_default()
-        .contains(CONFIGS_CHECK_HEADER)
 }
 
 fn check_requirements(sh: &Shell) -> Result<()> {
@@ -145,14 +136,17 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
     cmd!(sh, "systemctl enable ssserver").run()?;
     cmd!(sh, "systemctl restart ssserver").run()?;
 
-    if !is_config_already_modified(JOURNALD_CONF) {
-        println!("\n[config] tweaking log storing policy in {JOURNALD_CONF}");
-        write_append(JOURNALD_CONF, JOURNALD_CONF_TAIL)?;
+    let journald_conf = PathBuf::from(JOURNALD_CONF);
+    if !journald_conf.exists() {
+        fs::create_dir_all(JOURNALD_CONF_FOLDER)?;
+        println!("\n[config] setting new log storing policy in {JOURNALD_CONF}");
+        fs::write(journald_conf, JOURNALD_CONF_DATA)?;
     }
 
-    if !is_config_already_modified(SYSCTL_CONF) {
-        println!("\n[config] tweaking kernel in {SYSCTL_CONF}");
-        write_append(SYSCTL_CONF, SYSCTL_CONF_TAIL)?;
+    let sysctl_conf = PathBuf::from(SYSCTL_CONF);
+    if !sysctl_conf.exists() {
+        println!("\n[config] setting kernel tweaks in {SYSCTL_CONF}");
+        fs::write(sysctl_conf, SYSCTL_CONF_DATA)?;
         // apply
         cmd!(sh, "sysctl -p").run()?;
     }
