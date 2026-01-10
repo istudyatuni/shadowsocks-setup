@@ -24,9 +24,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - run: just build-ci
+
+      - name: extract changelog
+        run:
+          export VERSION="$(./target/sssetup -V | awk -F ' ' '{ print $2 }')"
+          sed -n "/^## $VERSION/,/^## /p" CHANGELOG.md|grep -v '^## ' > ${{ github.workspace }}-CHANGELOG.md
       - name: upload release artifact
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          body_path: ${{ github.workspace }}-CHANGELOG.md
           files: target/*.tar.xz
