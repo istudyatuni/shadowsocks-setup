@@ -4,6 +4,7 @@ use clap::{Parser, ValueEnum};
 
 /// Shadowsocks setup
 #[derive(Debug, Parser)]
+#[clap(version)]
 pub enum Args {
     /// Install shadowsocks
     Install {
