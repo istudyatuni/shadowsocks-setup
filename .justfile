@@ -12,6 +12,10 @@ build-ci: build-static && pack-release
 # build static binary
 build: build-static pack-release
 
+extract-changelog file:
+	@# about sed: https://askubuntu.com/a/849016
+	sed -n "/^## $(just get-build-version ./target/sssetup)/,/^## /p" CHANGELOG.md | grep -v '^## ' > "{{ file }}"
+
 [private]
 build-static:
 	@# CARGO_HOME and /tmp/.cargo is used to use local cargo download cache
@@ -27,5 +31,10 @@ build-static:
 
 [private]
 pack-release:
-	mv target/{{ target }}/release/sssetup target
-	cd target && tar caf "sssetup-v$(./sssetup -V | awk -F ' ' '{ print $2 }').tar.xz" sssetup
+	mv target/{{ target }}/release/sssetup target | :
+	cd target && tar caf "sssetup-v$(just get-build-version ./sssetup).tar.xz" sssetup
+
+[private]
+[no-cd]
+get-build-version exe:
+	"{{exe}}" -V | awk -F ' ' '{ print $2 }'
