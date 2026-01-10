@@ -7,8 +7,9 @@ pub fn get_latest_release_tag(owner: &str, repo: &str) -> Result<String> {
 
     let resp = Client::new()
         .get(url)
-        .header("Accept", "application/vnd.github+json")
-        .header("X-GitHub-Api-Version", "2022-11-28")
+        .header("accept", "application/vnd.github+json")
+        .header("user-agent", "curl/8.17.0")
+        .header("x-github-api-version", "2022-11-28")
         .send()
         .context("failed to send request for latest github release")?
         .error_for_status()?
