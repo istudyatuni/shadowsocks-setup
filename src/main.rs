@@ -24,6 +24,7 @@ fn main() -> Result<()> {
 
     create_dir_all(ARTIFACTS_DIR).context("failed to create artifacts dir")?;
     st.sh.change_dir(ARTIFACTS_DIR);
+    std::env::set_current_dir(ARTIFACTS_DIR).context("failed to change current dir")?;
 
     match &st.action {
         Action::Install(install @ Install { ss_type, .. }) => match ss_type {

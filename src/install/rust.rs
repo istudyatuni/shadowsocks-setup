@@ -106,14 +106,17 @@ fn check_requirements(sh: &Shell) -> Result<()> {
 }
 
 fn download(sh: &Shell, install: &Install) -> Result<()> {
-    let url = download_url(&install.version);
+    let version = &install.version;
+
+    let url = download_url(version);
     cmd!(sh, "wget --no-clobber {url}").run()?;
     cmd!(sh, "wget --no-clobber {url}.sha256").run()?;
 
-    let file = archive_filename(&install.version);
+    let file = archive_filename(version);
     cmd!(sh, "sha256sum --check {file}.sha256").run()?;
 
-    cmd!(sh, "tar -xf {file}").run()?;
+    fs::create_dir_all(version).context("failed to create version dir for artifacts")?;
+    cmd!(sh, "tar -xf {file} -C {version}").run()?;
     cmd!(sh, "cp ssservice {SSSERVICE_BIN}").run()?;
 
     Ok(())
