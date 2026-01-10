@@ -18,7 +18,7 @@ const SYSTEMD_SERVICE_TEXT: &str = include_str!("../../static/ssserver.service")
 
 const JOURNALD_CONF_FOLDER: &str = "/usr/lib/systemd/journald.conf.d";
 const JOURNALD_CONF: &str = "/usr/lib/systemd/journald.conf.d/90-ssserver-tweaks.conf";
-const JOURNALD_CONF_DATA: &str = include_str!("../../static/journald-tail.conf");
+const JOURNALD_CONF_DATA: &str = include_str!("../../static/journald.conf");
 
 const SYSCTL_CONF: &str = "/etc/sysctl.d/90-ssserver-tweaks.conf";
 const SYSCTL_CONF_DATA: &str = include_str!("../../static/sysctl.conf");
