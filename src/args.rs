@@ -8,10 +8,6 @@ use clap::{Parser, ValueEnum};
 pub enum Args {
     /// Install shadowsocks
     Install {
-        /// Shadowsocks installation type
-        #[arg(long = "type", default_value = "rust", id = "TYPE")]
-        ty: SsType,
-
         /// Server port
         #[arg(long)]
         port: u32,
@@ -28,20 +24,8 @@ pub enum Args {
         #[arg(long)]
         version: Option<Version>,
     },
-    /// Install shadowsocks
-    Undo {
-        /// Shadowsocks installation type
-        #[arg(long = "type", default_value = "rust", id = "TYPE")]
-        ty: SsType,
-    },
-}
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum SsType {
-    Rust,
-    #[value(skip)]
-    #[expect(unused)]
-    Libev,
+    /// Uninstall shadowsocks
+    Undo,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
