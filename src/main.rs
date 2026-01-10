@@ -18,11 +18,13 @@ fn prepare_state() -> State {
             port,
             password,
             cipher,
+            version,
         } => State::new(Action::Install(Install::new(
             ty,
             port,
             &password,
             &cipher.to_string(),
+            &version,
         ))),
         Args::Undo { ty } => State::new(Action::Undo(Undo::new(ty))),
     }
@@ -46,7 +48,7 @@ fn main() {
 
     match &st.action {
         Action::Install(Install { ss_type, .. }) => match ss_type {
-            SsType::Rust => install::rust::run(&st),
+            SsType::Rust => install::rust::install(&st),
             SsType::Libev => eprintln!("libev is not implemented"),
         },
         Action::Undo(Undo { ss_type }) => match ss_type {

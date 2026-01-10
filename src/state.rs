@@ -18,6 +18,7 @@ pub struct Install {
     pub server_port: u32,
     pub server_password: String,
     pub cipher: String,
+    pub version: String,
 }
 
 pub struct State {
@@ -32,12 +33,19 @@ impl Undo {
 }
 
 impl Install {
-    pub fn new(ss_type: SsType, server_port: u32, server_password: &str, cipher: &str) -> Self {
+    pub fn new(
+        ss_type: SsType,
+        server_port: u32,
+        server_password: &str,
+        cipher: &str,
+        version: &str,
+    ) -> Self {
         Self {
             ss_type,
             server_port,
             server_password: server_password.to_string(),
             cipher: cipher.to_string(),
+            version: version.to_string(),
         }
     }
 }

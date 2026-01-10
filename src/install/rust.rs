@@ -5,9 +5,8 @@ use pnet::datalink;
 use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
 
-use crate::state::State;
+use crate::state::{Action, Install, State};
 
-const SS_VERSION: &str = "v1.14.3";
 const DL_URL: &str = "https://github.com/shadowsocks/shadowsocks-rust/releases/download";
 
 const SSSERVICE_BIN: &str = "/usr/local/bin/ssservice";
@@ -27,12 +26,12 @@ const SYSCTL_CONF_TAIL: &str = include_str!("../../static/sysctl-tail.conf");
 
 // common
 
-fn archive_filename() -> String {
-    format!("shadowsocks-{}.x86_64-unknown-linux-gnu.tar.xz", SS_VERSION)
+fn archive_filename(version: &str) -> String {
+    format!("shadowsocks-{version}.x86_64-unknown-linux-gnu.tar.xz")
 }
 
-fn download_url() -> String {
-    DL_URL.to_owned() + "/" + SS_VERSION + "/" + archive_filename().as_str()
+fn download_url(version: &str) -> String {
+    DL_URL.to_owned() + "/" + version + "/" + archive_filename(version).as_str()
 }
 
 fn write_append(path: &str, contents: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -67,28 +66,21 @@ fn check_requirements(sh: &Shell) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn download(st: &State) -> Result<(), Box<dyn std::error::Error>> {
-    let url = download_url();
-    cmd!(st.sh, "wget --no-clobber {url}").run()?;
-    cmd!(st.sh, "wget --no-clobber {url}.sha256").run()?;
+fn download(sh: &Shell, install: &Install) -> Result<(), Box<dyn std::error::Error>> {
+    let url = download_url(&install.version);
+    cmd!(sh, "wget --no-clobber {url}").run()?;
+    cmd!(sh, "wget --no-clobber {url}.sha256").run()?;
 
-    let file = archive_filename();
-    cmd!(st.sh, "sha256sum --check {file}.sha256").run()?;
+    let file = archive_filename(&install.version);
+    cmd!(sh, "sha256sum --check {file}.sha256").run()?;
 
-    cmd!(st.sh, "tar -xf {file}").run()?;
-    cmd!(st.sh, "cp ssservice {SSSERVICE_BIN}").run()?;
+    cmd!(sh, "tar -xf {file}").run()?;
+    cmd!(sh, "cp ssservice {SSSERVICE_BIN}").run()?;
 
     Ok(())
 }
 
-fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
-    // this match just for unwrap value, this function will
-    // never called with 'Undo' action
-    let install = match st.get_install() {
-        Some(i) => i,
-        None => return Ok(()),
-    };
-
+fn configure(sh: &Shell, install: &Install) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n[config] create shadowsocks config");
     let sssconfig = json!({
         "server": "0.0.0.0",
@@ -102,8 +94,8 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(SYSTEMD_SERVICE_FOLDER)?;
     fs::write(SYSTEMD_SERVICE_FILE, SYSTEMD_SERVICE_TEXT)?;
 
-    cmd!(st.sh, "systemctl enable ssserver").run()?;
-    cmd!(st.sh, "systemctl restart ssserver").run()?;
+    cmd!(sh, "systemctl enable ssserver").run()?;
+    cmd!(sh, "systemctl restart ssserver").run()?;
 
     if is_config_already_modified(JOURNALD_CONF) {
         println!("\n[config] tweak log storing policy");
@@ -114,14 +106,14 @@ fn configure(st: &State) -> Result<(), Box<dyn std::error::Error>> {
         println!("\n[config] tweak kernel");
         write_append(SYSCTL_CONF, SYSCTL_CONF_TAIL)?;
         // apply
-        cmd!(st.sh, "sysctl -p").run()?;
+        cmd!(sh, "sysctl -p").run()?;
     }
 
     println!("\n[config] opening ports");
-    cmd!(st.sh, "ufw allow 22").run()?;
+    cmd!(sh, "ufw allow 22").run()?;
     let port = install.server_port.to_string();
-    cmd!(st.sh, "ufw allow {port}").run()?;
-    cmd!(st.sh, "ufw --force enable").run()?;
+    cmd!(sh, "ufw allow {port}").run()?;
+    cmd!(sh, "ufw --force enable").run()?;
 
     Ok(())
 }
@@ -163,16 +155,21 @@ fn print_config(st: &State) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-pub fn run(st: &State) {
+pub fn install(st: &State) {
+    let Action::Install(ref install) = st.action else {
+        eprintln!("wrong action type");
+        return;
+    };
+
     if let Err(e) = check_requirements(&st.sh) {
         eprintln!("\n{e}");
         return;
     }
-    if let Err(e) = download(st) {
+    if let Err(e) = download(&st.sh, install) {
         eprintln!("\n{e}");
         return;
     }
-    if let Err(e) = configure(st) {
+    if let Err(e) = configure(&st.sh, install) {
         eprintln!("\n{e}");
         return;
     }

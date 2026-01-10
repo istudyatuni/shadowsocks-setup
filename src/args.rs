@@ -22,6 +22,10 @@ pub enum Args {
         /// AEAD cipher
         #[arg(long, default_value_t = Cipher::Aes256Gcm)]
         cipher: Cipher,
+
+        /// Shadowsocks version to install
+        #[arg(long, default_value = "v1.24.0")]
+        version: String,
     },
     /// Install shadowsocks
     Undo {
