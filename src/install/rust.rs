@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::Write;
 
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use pnet::datalink;
 use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
@@ -156,37 +156,26 @@ fn print_config(st: &State) -> Result<()> {
     Ok(())
 }
 
-pub fn install(st: &State) {
+pub fn install(st: &State) -> Result<()> {
     let Action::Install(ref install) = st.action else {
-        eprintln!("wrong action type");
-        return;
+        bail!("wrong action type");
     };
 
-    if let Err(e) = check_requirements(&st.sh) {
-        eprintln!("\n{e}");
-        return;
-    }
-    if let Err(e) = download(&st.sh, install) {
-        eprintln!("\n{e}");
-        return;
-    }
-    if let Err(e) = configure(&st.sh, install) {
-        eprintln!("\n{e}");
-        return;
-    }
-    if let Err(e) = print_config(st) {
-        eprintln!("\n{e}");
-        return;
-    }
+    check_requirements(&st.sh)?;
+    download(&st.sh, install)?;
+    configure(&st.sh, install)?;
+    print_config(st)?;
 
-    cmd!(st.sh, "reboot").run().unwrap_or_else(|e| {
-        eprintln!("Cannot reboot: {e}");
-    });
+    cmd!(st.sh, "reboot").run().context("failed to reboot")?;
+
+    Ok(())
 }
 
 // undo logic
 
 fn real_undo(st: &State) -> Result<()> {
+    cmd!(st.sh, "systemctl disable ssserver").run()?;
+
     let to_remove = [CONFIG_FILE, SSSERVICE_BIN];
     to_remove.iter().for_each(|f| {
         match fs::remove_file(f) {
@@ -194,8 +183,6 @@ fn real_undo(st: &State) -> Result<()> {
             Err(e) => eprintln!("Couldn't remove {f}: {e}"),
         };
     });
-
-    cmd!(st.sh, "systemctl disable ssserver").run()?;
 
     Ok(())
 }
