@@ -4,6 +4,7 @@
 
 - Add ability to install different version
 - Use latest released version by default
+- Old config is backed up now when uninstalling
 
 ### Fixes
 

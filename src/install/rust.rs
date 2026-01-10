@@ -177,13 +177,31 @@ pub fn install(sh: &Shell, install: &Install) -> Result<()> {
 pub fn undo(sh: &Shell) -> Result<()> {
     cmd!(sh, "systemctl disable ssserver").run()?;
 
-    let to_remove = [CONFIG_FILE, SSSERVICE_BIN, SYSTEMD_SERVICE_FILE];
-    to_remove.iter().for_each(|f| {
-        match fs::remove_file(f) {
-            Ok(_) => println!("[undo] remove {f}"),
+    let to_backup = [CONFIG_FILE];
+    for f in to_backup {
+        let mut new_name = format!("{f}.bak");
+        // if backup already exists, find first non-existing name like "{f}.bak1"
+        if std::fs::exists(&new_name).is_ok_and(|exists| exists) {
+            if let Some(name) = (1..)
+                .map(|i| format!("{new_name}{i}"))
+                .find(|name| fs::exists(name).is_ok_and(|exists| exists))
+            {
+                new_name = name;
+            }
+        }
+        match fs::rename(f, &new_name) {
+            Ok(_) => println!("[undo] saved {f} to {new_name}"),
             Err(e) => eprintln!("Couldn't remove {f}: {e}"),
         };
-    });
+    }
+
+    let to_remove = [SSSERVICE_BIN, SYSTEMD_SERVICE_FILE];
+    for f in to_remove {
+        match fs::remove_file(f) {
+            Ok(_) => println!("[undo] removed {f}"),
+            Err(e) => eprintln!("Couldn't remove {f}: {e}"),
+        };
+    }
 
     Ok(())
 }
