@@ -177,7 +177,7 @@ pub fn install(sh: &Shell, install: &Install) -> Result<()> {
 pub fn undo(sh: &Shell) -> Result<()> {
     cmd!(sh, "systemctl disable ssserver").run()?;
 
-    let to_remove = [CONFIG_FILE, SSSERVICE_BIN];
+    let to_remove = [CONFIG_FILE, SSSERVICE_BIN, SYSTEMD_SERVICE_FILE];
     to_remove.iter().for_each(|f| {
         match fs::remove_file(f) {
             Ok(_) => println!("[undo] remove {f}"),
