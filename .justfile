@@ -20,4 +20,4 @@ build: && pack-release
 [private]
 pack-release:
 	mv target/{{ target }}/release/sssetup target
-	tar caf "target/sssetup-v$(./target/sssetup -V | awk -F ' ' '{ print $2 }').tar.xz" target/sssetup
+	cd target && tar caf "sssetup-v$(./sssetup -V | awk -F ' ' '{ print $2 }').tar.xz" sssetup
