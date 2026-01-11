@@ -5,7 +5,8 @@ use pnet::datalink;
 use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
 
-use crate::state::Install;
+use super::input::shadowsocks::Install;
+use crate::{args::InstallArgs, github::get_latest_release_tag};
 
 const DL_URL: &str = "https://github.com/shadowsocks/shadowsocks-rust/releases/download";
 
@@ -23,10 +24,11 @@ const JOURNALD_CONF_DATA: &str = include_str!("../../static/journald.conf");
 const SYSCTL_CONF: &str = "/etc/sysctl.d/90-ssserver-tweaks.conf";
 const SYSCTL_CONF_DATA: &str = include_str!("../../static/sysctl.conf");
 
-pub fn install(sh: &Shell, install: &Install) -> Result<()> {
-    if is_already_installed(sh, &install.version) {
-        bail!("shadowsocks {} is already installed", install.version);
-    }
+pub fn install(sh: &Shell, args: InstallArgs) -> Result<()> {
+    let installed_version = get_installed_version(sh);
+    eprintln!("[install] loading latest version");
+    let latest_version = get_latest_ss_version()?;
+    let install = &Install::ask(args, installed_version.as_deref(), &latest_version)?;
 
     check_requirements(sh)?;
     download(sh, install)?;
@@ -75,23 +77,24 @@ pub fn undo(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-fn is_already_installed(sh: &Shell, version: &str) -> bool {
+fn get_latest_ss_version() -> Result<String> {
+    get_latest_release_tag("shadowsocks", "shadowsocks-rust")
+        .context("failed to get latest release")
+}
+
+fn get_installed_version(sh: &Shell) -> Option<String> {
     let exe = PathBuf::from(SSSERVICE_BIN);
 
     if !exe.exists() {
-        return false;
+        return None;
     }
 
-    match cmd!(sh, "{exe} -V").output() {
-        Ok(output) => match std::str::from_utf8(&output.stdout) {
-            Ok(output) => output
-                .split_whitespace()
-                .last()
-                .is_some_and(|v| version == format!("v{v}")),
-            Err(_) => false,
-        },
-        Err(_) => false,
-    }
+    let output = cmd!(sh, "{exe} -V").output().ok()?.stdout;
+    let version = std::str::from_utf8(&output)
+        .ok()?
+        .split_whitespace()
+        .last()?;
+    Some(format!("v{version}"))
 }
 
 fn check_requirements(sh: &Shell) -> Result<()> {
@@ -130,6 +133,7 @@ fn download(sh: &Shell, install: &Install) -> Result<()> {
     let file = archive_filename(version);
     cmd!(sh, "sha256sum --check {file}.sha256").run()?;
 
+    let version: &str = version;
     fs::create_dir_all(version).context("failed to create version dir for artifacts")?;
     cmd!(sh, "tar -xf {file} -C {version}").run()?;
     cmd!(sh, "cp ssservice {SSSERVICE_BIN}").run()?;

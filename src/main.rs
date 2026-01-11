@@ -5,12 +5,11 @@ use clap::Parser;
 use xshell::Shell;
 
 use args::Args;
-use github::get_latest_release_tag;
-use state::{Action, Install, State};
 
 mod args;
 mod github;
 mod install;
+mod version;
 
 const ARTIFACTS_DIR: &str = "shadowsocks-artifacts";
 
@@ -31,31 +30,9 @@ fn main() -> Result<()> {
     std::env::set_current_dir(ARTIFACTS_DIR).context("failed to change current dir")?;
 
     match args {
-        Args::Install {
-            port,
-            password,
-            cipher,
-            version,
-        } => {
-            let version = get_ss_version(version.as_deref())?;
-            let install = Install {
-                server_port: port,
-                server_password: password,
-                cipher: cipher.to_string(),
-                version,
-            };
-            install::shadowsocks::install(&sh, &install)?
-        }
+        Args::Install(args) => install::shadowsocks::install(&sh, args)?,
         Args::Undo => install::shadowsocks::undo(&sh)?,
     }
 
     Ok(())
-}
-
-fn get_ss_version(provided: Option<&str>) -> Result<String> {
-    if let Some(version) = provided {
-        return Ok(format!("v{version}"));
-    }
-    get_latest_release_tag("shadowsocks", "shadowsocks-rust")
-        .context("failed to get latest release")
 }
