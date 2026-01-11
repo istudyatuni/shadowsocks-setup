@@ -1,6 +1,6 @@
 use std::fs::create_dir_all;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use xshell::Shell;
 

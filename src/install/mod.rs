@@ -1,5 +1,5 @@
-use anyhow::{bail, Result};
-use xshell::{cmd, Shell};
+use anyhow::{Result, bail};
+use xshell::{Shell, cmd};
 
 pub mod input;
 mod network;

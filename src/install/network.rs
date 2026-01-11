@@ -2,7 +2,7 @@ use std::net::IpAddr;
 
 use anyhow::{Context, Result};
 use pnet::datalink;
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 pub fn get_ipv4() -> Result<IpAddr> {
     let all_interfaces = datalink::interfaces();

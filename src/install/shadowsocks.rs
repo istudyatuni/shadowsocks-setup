@@ -5,9 +5,9 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use serde_json::{json, to_string_pretty};
-use xshell::{cmd, Shell};
+use xshell::{Shell, cmd};
 
 use super::input::shadowsocks::Install;
 use crate::{
