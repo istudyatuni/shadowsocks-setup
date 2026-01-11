@@ -147,7 +147,7 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
         "server": "0.0.0.0",
         "server_port": install.server_port,
         "password": install.server_password,
-        "method": install.cipher,
+        "method": install.cipher.to_string(),
     });
     fs::write(CONFIG_FILE, to_string_pretty(&sssconfig)?)?;
 
@@ -200,7 +200,7 @@ fn print_config(sh: &Shell, install: &Install) -> Result<()> {
         "server_port": install.server_port,
         "local_port": 1080,
         "password": install.server_password,
-        "method": install.cipher,
+        "method": install.cipher.to_string(),
     });
     let client_config_path = "sssconfig-client.json";
     let client_config = to_string_pretty(&client_config)?;

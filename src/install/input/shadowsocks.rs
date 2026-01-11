@@ -9,7 +9,7 @@ pub type Result<T, E = Error> = std::result::Result<T, E>;
 pub struct Install {
     pub server_port: u32,
     pub server_password: String,
-    pub cipher: String,
+    pub cipher: Cipher,
     pub version: Version,
 }
 
@@ -53,7 +53,7 @@ impl Install {
 struct InstallInput {
     server_port: Option<u32>,
     server_password: Option<String>,
-    cipher: Option<String>,
+    cipher: Option<Cipher>,
     version: Option<Version>,
 }
 
@@ -62,7 +62,7 @@ impl InstallInput {
         Self {
             server_port: args.port,
             server_password: args.password,
-            cipher: args.cipher.map(|c| c.to_string()),
+            cipher: args.cipher,
             version: args.version,
         }
     }
@@ -96,18 +96,14 @@ impl InstallInput {
             return Ok(());
         }
 
-        let items: Vec<_> = Cipher::value_variants()
-            .iter()
-            .map(|v| v.to_string())
-            .collect();
-
+        let items = Cipher::value_variants();
         let selected = Select::with_theme(&ColorfulTheme::default())
             .with_prompt("Cipher")
-            .items(&items)
+            .items(items)
             .default(0)
             .interact()?;
 
-        self.cipher = Some(items[selected].to_string());
+        self.cipher = Some(items[selected]);
         Ok(())
     }
     fn ask_version(&mut self, latest_version: &str) -> Result<()> {
