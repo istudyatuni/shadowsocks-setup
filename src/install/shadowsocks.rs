@@ -1,12 +1,12 @@
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, str::FromStr};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use pnet::datalink;
 use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
 
 use super::input::shadowsocks::Install;
-use crate::{args::InstallArgs, github::get_latest_release_tag};
+use crate::{args::InstallArgs, github::get_latest_release_tag, version::Version};
 
 const DL_URL: &str = "https://github.com/shadowsocks/shadowsocks-rust/releases/download";
 
@@ -28,12 +28,12 @@ pub fn install(sh: &Shell, args: InstallArgs) -> Result<()> {
     let installed_version = get_installed_version(sh);
     eprintln!("[install] loading latest version");
     let latest_version = get_latest_ss_version()?;
-    let install = &Install::ask(args, installed_version.as_deref(), &latest_version)?;
+    let install = Install::ask(args, installed_version, latest_version)?;
 
     check_requirements(sh)?;
-    download(sh, install)?;
-    configure(sh, install)?;
-    print_config(sh, install)?;
+    download(sh, &install)?;
+    configure(sh, &install)?;
+    print_config(sh, &install)?;
 
     cmd!(sh, "reboot").run().context("failed to reboot")?;
 
@@ -77,12 +77,15 @@ pub fn undo(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-fn get_latest_ss_version() -> Result<String> {
+fn get_latest_ss_version() -> Result<Version> {
     get_latest_release_tag("shadowsocks", "shadowsocks-rust")
-        .context("failed to get latest release")
+        .context("failed to get latest release")?
+        .parse()
+        .map_err(|e| anyhow!("{e}"))
+        .context("got invalid version from latest release")
 }
 
-fn get_installed_version(sh: &Shell) -> Option<String> {
+fn get_installed_version(sh: &Shell) -> Option<Version> {
     let exe = PathBuf::from(SSSERVICE_BIN);
 
     if !exe.exists() {
@@ -94,7 +97,7 @@ fn get_installed_version(sh: &Shell) -> Option<String> {
         .ok()?
         .split_whitespace()
         .last()?;
-    Some(format!("v{version}"))
+    Version::from_str(version).ok()
 }
 
 fn check_requirements(sh: &Shell) -> Result<()> {
@@ -216,10 +219,17 @@ fn print_config(sh: &Shell, install: &Install) -> Result<()> {
     Ok(())
 }
 
-fn archive_filename(version: &str) -> String {
-    format!("shadowsocks-{version}.x86_64-unknown-linux-gnu.tar.xz")
+fn archive_filename(version: &Version) -> String {
+    format!(
+        "shadowsocks-{}.x86_64-unknown-linux-gnu.tar.xz",
+        version.as_prefixed()
+    )
 }
 
-fn download_url(version: &str) -> String {
-    DL_URL.to_owned() + "/" + version + "/" + archive_filename(version).as_str()
+fn download_url(version: &Version) -> String {
+    DL_URL.to_owned()
+        + "/"
+        + version.as_prefixed().as_str()
+        + "/"
+        + archive_filename(version).as_str()
 }

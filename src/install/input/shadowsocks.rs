@@ -16,16 +16,15 @@ pub struct Install {
 impl Install {
     pub fn ask(
         args: InstallArgs,
-        installed_version: Option<&str>,
-        latest_version: &str,
+        installed_version: Option<Version>,
+        latest_version: Version,
     ) -> Result<Self> {
         let mut asker = InstallInput::from_args(args);
         asker.ask_version(latest_version)?;
 
         if let Some(version) = installed_version {
-            let version = version.trim_start_matches('v');
             if let Some(input_version) = &asker.version {
-                if version == input_version.trim_start_matches('v')
+                if version == *input_version
                     && Confirm::new()
                         .with_prompt("Shadowsocks v{version} already installed, continue?")
                         .show_default(false)
@@ -106,7 +105,7 @@ impl InstallInput {
         self.cipher = Some(items[selected]);
         Ok(())
     }
-    fn ask_version(&mut self, latest_version: &str) -> Result<()> {
+    fn ask_version(&mut self, latest_version: Version) -> Result<()> {
         if self.version.is_some() {
             return Ok(());
         }
@@ -114,7 +113,7 @@ impl InstallInput {
         self.version = Some(
             Input::<String>::with_theme(&ColorfulTheme::default())
                 .with_prompt("Shadowsocks version")
-                .with_initial_text(latest_version)
+                .with_initial_text(latest_version.as_prefixed())
                 .validate_with(super::validate::validate_version)
                 .interact_text()?
                 .parse()

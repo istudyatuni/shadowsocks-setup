@@ -1,7 +1,14 @@
 use std::{ops::Deref, str::FromStr};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Version(String);
+
+impl Version {
+    /// Returns "v{version}"
+    pub fn as_prefixed(&self) -> String {
+        format!("v{}", self.0)
+    }
+}
 
 impl AsRef<str> for Version {
     fn as_ref(&self) -> &str {
