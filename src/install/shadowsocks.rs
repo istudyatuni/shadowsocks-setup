@@ -75,12 +75,23 @@ pub fn undo(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-fn archive_filename(version: &str) -> String {
-    format!("shadowsocks-{version}.x86_64-unknown-linux-gnu.tar.xz")
-}
+fn is_already_installed(sh: &Shell, version: &str) -> bool {
+    let exe = PathBuf::from(SSSERVICE_BIN);
 
-fn download_url(version: &str) -> String {
-    DL_URL.to_owned() + "/" + version + "/" + archive_filename(version).as_str()
+    if !exe.exists() {
+        return false;
+    }
+
+    match cmd!(sh, "{exe} -V").output() {
+        Ok(output) => match std::str::from_utf8(&output.stdout) {
+            Ok(output) => output
+                .split_whitespace()
+                .last()
+                .is_some_and(|v| version == format!("v{v}")),
+            Err(_) => false,
+        },
+        Err(_) => false,
+    }
 }
 
 fn check_requirements(sh: &Shell) -> Result<()> {
@@ -107,25 +118,6 @@ fn check_requirements(sh: &Shell) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn is_already_installed(sh: &Shell, version: &str) -> bool {
-    let exe = PathBuf::from(SSSERVICE_BIN);
-
-    if !exe.exists() {
-        return false;
-    }
-
-    match cmd!(sh, "{exe} -V").output() {
-        Ok(output) => match std::str::from_utf8(&output.stdout) {
-            Ok(output) => output
-                .split_whitespace()
-                .last()
-                .is_some_and(|v| version == format!("v{v}")),
-            Err(_) => false,
-        },
-        Err(_) => false,
-    }
 }
 
 fn download(sh: &Shell, install: &Install) -> Result<()> {
@@ -218,4 +210,12 @@ fn print_config(sh: &Shell, install: &Install) -> Result<()> {
     println!("#############################");
 
     Ok(())
+}
+
+fn archive_filename(version: &str) -> String {
+    format!("shadowsocks-{version}.x86_64-unknown-linux-gnu.tar.xz")
+}
+
+fn download_url(version: &str) -> String {
+    DL_URL.to_owned() + "/" + version + "/" + archive_filename(version).as_str()
 }
