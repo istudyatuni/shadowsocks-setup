@@ -3,6 +3,7 @@
 ### Features
 
 - Check if shadowsocks already installed
+- Ask install parameters interactively
 
 ## 0.1.4 (2026-01-10)
 
