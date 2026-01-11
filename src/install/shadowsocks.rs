@@ -6,7 +6,12 @@ use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
 
 use super::input::shadowsocks::Install;
-use crate::{args::InstallArgs, github::get_latest_release_tag, version::Version};
+use crate::{
+    args::{InstallArgs, UpdateArgs},
+    github::get_latest_release_tag,
+    install::input::shadowsocks::Update,
+    version::Version,
+};
 
 const DL_URL: &str = "https://github.com/shadowsocks/shadowsocks-rust/releases/download";
 
@@ -24,6 +29,17 @@ const JOURNALD_CONF_DATA: &str = include_str!("../../static/journald.conf");
 const SYSCTL_CONF: &str = "/etc/sysctl.d/90-ssserver-tweaks.conf";
 const SYSCTL_CONF_DATA: &str = include_str!("../../static/sysctl.conf");
 
+const INSTALL_EXE_REQUIRED: &[&str] = &[
+    "wget",
+    "sha256sum",
+    "tar",
+    "systemctl",
+    "cp",
+    "sysctl",
+    "ufw",
+];
+const UPDATE_EXE_REQUIRED: &[&str] = &["wget", "sha256sum", "tar", "systemctl", "cp"];
+
 pub fn install(sh: &Shell, args: InstallArgs) -> Result<()> {
     let installed_version = get_installed_version(sh);
     let latest_version = if let Some(version) = &args.version {
@@ -34,12 +50,33 @@ pub fn install(sh: &Shell, args: InstallArgs) -> Result<()> {
     };
     let install = Install::ask(args, installed_version, latest_version)?;
 
-    check_requirements(sh)?;
-    download(sh, &install)?;
+    check_requirements(sh, INSTALL_EXE_REQUIRED)?;
+    download(sh, &install.version)?;
     configure(sh, &install)?;
     print_config(sh, &install)?;
 
     cmd!(sh, "reboot").run().context("failed to reboot")?;
+
+    Ok(())
+}
+
+pub fn update(sh: &Shell, args: UpdateArgs) -> Result<()> {
+    if get_installed_version(sh).is_none() {
+        bail!("shadowsocks not installed")
+    }
+
+    let latest_version = if let Some(version) = &args.version {
+        version.clone()
+    } else {
+        eprintln!("[install] loading latest version");
+        get_latest_ss_version()?
+    };
+    let install = Update::ask(latest_version)?;
+
+    check_requirements(sh, UPDATE_EXE_REQUIRED)?;
+    cmd!(sh, "systemctl stop ssserver").run()?;
+    download(sh, &install.version)?;
+    cmd!(sh, "systemctl start ssserver").run()?;
 
     Ok(())
 }
@@ -104,17 +141,8 @@ fn get_installed_version(sh: &Shell) -> Option<Version> {
     Version::from_str(version).ok()
 }
 
-fn check_requirements(sh: &Shell) -> Result<()> {
+fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
     println!("[prepare] checking required executables");
-    let bin_reqs = vec![
-        "wget",
-        "sha256sum",
-        "tar",
-        "systemctl",
-        "cp",
-        "sysctl",
-        "ufw",
-    ];
     let mut missed = false;
     for r in bin_reqs {
         if cmd!(sh, "which {r}").quiet().ignore_stdout().run().is_err() {
@@ -130,9 +158,7 @@ fn check_requirements(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-fn download(sh: &Shell, install: &Install) -> Result<()> {
-    let version = &install.version;
-
+fn download(sh: &Shell, version: &Version) -> Result<()> {
     let url = download_url(version);
     cmd!(sh, "wget --no-clobber {url}").run()?;
     cmd!(sh, "wget --no-clobber {url}.sha256").run()?;

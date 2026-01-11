@@ -8,6 +8,8 @@ use crate::{cipher::Cipher, version::Version};
 pub enum Args {
     /// Install shadowsocks
     Install(InstallArgs),
+    /// Update shadowsocks
+    Update(UpdateArgs),
     /// Uninstall shadowsocks
     Undo,
 }
@@ -26,6 +28,13 @@ pub struct InstallArgs {
     #[arg(long)]
     pub cipher: Option<Cipher>,
 
+    /// Shadowsocks version to install
+    #[arg(long)]
+    pub version: Option<Version>,
+}
+
+#[derive(Debug, Parser)]
+pub struct UpdateArgs {
     /// Shadowsocks version to install
     #[arg(long)]
     pub version: Option<Version>,

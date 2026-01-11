@@ -24,11 +24,11 @@ impl Install {
         installed_version: Option<Version>,
         latest_version: Version,
     ) -> Result<Self> {
-        let mut asker = match InstallInput::load_state() {
+        let mut asker = match DataInput::load_state() {
             Ok(a) => a.update_from_args(args),
             Err(e) => {
                 eprintln!("failed to load input state: {e}");
-                InstallInput::default().update_from_args(args)
+                DataInput::default().update_from_args(args)
             }
         };
         asker.ask_version(latest_version)?;
@@ -50,7 +50,7 @@ impl Install {
         asker.ask_server_password()?;
         asker.ask_cipher()?;
 
-        if let Err(e) = InstallInput::clean_state() {
+        if let Err(e) = DataInput::clean_state() {
             eprintln!("failed to cleanup input state: {e}");
         }
 
@@ -63,15 +63,31 @@ impl Install {
     }
 }
 
+#[derive(Debug)]
+pub struct Update {
+    pub version: Version,
+}
+
+impl Update {
+    pub fn ask(latest_version: Version) -> Result<Self> {
+        let mut asker = DataInput::default();
+        asker.ask_version(latest_version)?;
+
+        Ok(Self {
+            version: asker.version.expect("should be asked"),
+        })
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
-struct InstallInput {
+struct DataInput {
     server_port: Option<u32>,
     server_password: Option<String>,
     cipher: Option<Cipher>,
     version: Option<Version>,
 }
 
-impl InstallInput {
+impl DataInput {
     fn load_state() -> Result<Self> {
         let path = PathBuf::from(TEMP_PATH);
         if !path.exists() {

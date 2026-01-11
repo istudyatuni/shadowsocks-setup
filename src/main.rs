@@ -32,6 +32,7 @@ fn main() -> Result<()> {
 
     match args {
         Args::Install(args) => install::shadowsocks::install(&sh, args)?,
+        Args::Update(args) => install::shadowsocks::update(&sh, args)?,
         Args::Undo => install::shadowsocks::undo(&sh)?,
     }
 

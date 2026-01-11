@@ -4,6 +4,7 @@
 
 - Check if shadowsocks already installed
 - Ask install parameters interactively
+- Support update
 
 ## 0.1.4 (2026-01-10)
 
