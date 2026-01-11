@@ -13,7 +13,10 @@ use super::input::shadowsocks::Install;
 use crate::{
     args::{InstallArgs, UpdateArgs},
     github::get_latest_release_tag,
-    install::{input::shadowsocks::Update, network::get_ipv4},
+    install::{
+        input::shadowsocks::Update,
+        network::{get_ipv4, open_firewall_ports_and_enable},
+    },
     version::Version,
 };
 
@@ -215,11 +218,7 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
         cmd!(sh, "sysctl -p").run()?;
     }
 
-    println!("\n[config] opening firewall ports");
-    cmd!(sh, "ufw allow 22").run()?;
-    let port = install.server_port.to_string();
-    cmd!(sh, "ufw allow {port}").run()?;
-    cmd!(sh, "ufw --force enable").run()?;
+    open_firewall_ports_and_enable(sh, &[22, install.server_port])?;
 
     Ok(())
 }
