@@ -4,26 +4,18 @@ Helper to setup [shadowsocks](https://shadowsocks.org) server
 
 ## Usage
 
-Download static-linked build [here](https://github.com/istudyatuni/shadowsocks-setup/releases) to the server and unpack.
-
-### Install
-
-*Possible types*:
-
-- `rust` - [`shadowsocks-rust`](https://github.com/shadowsocks/shadowsocks-rust) (default)
+Download static-linked build from [latest release](https://github.com/istudyatuni/shadowsocks-setup/releases/latest) to the server and unpack
 
 ```bash
-sssetup install --port <port> --password <password>
-# explicitly specify the type
-sssetup install <type> --port <port> --password <password>
-# specify AEAD cipher
-sssetup install --port <port> --password <password> --cipher <cipher>
-```
+# install, input options interactively
+sssetup install
+# pass options from cli
+sssetup install --port <port> --password <password> --cipher <cipher> --version <version>
 
-### Undo installation
+# update shadowsocks
+sssetup update
+sssetup update --version <version>
 
-```bash
+# undo installation
 sssetup undo
-# explicitly specify the type
-sssetup undo rust
 ```
