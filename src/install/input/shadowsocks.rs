@@ -66,26 +66,24 @@ impl InstallInput {
         }
     }
     fn ask_server_port(&mut self) -> Result<()> {
-        if self.server_port.is_some() {
-            return Ok(());
-        }
-
         self.server_port = Some(
             Input::with_theme(&ColorfulTheme::default())
                 .with_prompt("Server port")
+                .with_initial_text(
+                    self.server_port
+                        .map(|p| ToString::to_string(&p))
+                        .unwrap_or_default(),
+                )
                 .validate_with(super::validate::validate_net_port)
                 .interact_text()?,
         );
         Ok(())
     }
     fn ask_server_password(&mut self) -> Result<()> {
-        if self.server_password.is_some() {
-            return Ok(());
-        }
-
         self.server_password = Some(
             Input::with_theme(&ColorfulTheme::default())
                 .with_prompt("Server password")
+                .with_initial_text(self.server_password.as_deref().unwrap_or_default())
                 .interact_text()?,
         );
         Ok(())
@@ -106,14 +104,15 @@ impl InstallInput {
         Ok(())
     }
     fn ask_version(&mut self, latest_version: Version) -> Result<()> {
-        if self.version.is_some() {
-            return Ok(());
-        }
-
         self.version = Some(
             Input::<String>::with_theme(&ColorfulTheme::default())
                 .with_prompt("Shadowsocks version")
-                .with_initial_text(latest_version.as_prefixed())
+                .with_initial_text(
+                    self.version
+                        .as_ref()
+                        .unwrap_or(&latest_version)
+                        .as_prefixed(),
+                )
                 .validate_with(super::validate::validate_version)
                 .interact_text()?
                 .parse()
