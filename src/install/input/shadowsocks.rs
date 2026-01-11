@@ -1,10 +1,7 @@
 use clap::ValueEnum;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 
-use crate::{
-    args::{Cipher, InstallArgs},
-    version::Version,
-};
+use crate::{args::InstallArgs, cipher::Cipher, version::Version};
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 

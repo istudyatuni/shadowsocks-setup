@@ -7,6 +7,7 @@ use xshell::Shell;
 use args::Args;
 
 mod args;
+mod cipher;
 mod github;
 mod install;
 mod version;
