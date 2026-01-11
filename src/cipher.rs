@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy, ValueEnum, Serialize, Deserialize)]
 pub enum Cipher {
     #[value(name = "aes-256-gcm")]
     Aes256Gcm,
@@ -25,6 +26,8 @@ impl Display for Cipher {
 mod tests {
     use super::*;
 
+    use serde_json::json;
+
     #[test]
     fn test_cipher_fmt() {
         use Cipher::*;
@@ -32,5 +35,10 @@ mod tests {
         assert_eq!(Aes256Gcm.to_string(), "aes-256-gcm");
         assert_eq!(Chacha20IetfPoly1305.to_string(), "chacha20-ietf-poly1305");
         assert_eq!(Aes128Gcm.to_string(), "aes-128-gcm");
+
+        assert_eq!(
+            serde_json::to_string(&json!({ "value": Cipher::Aes128Gcm })).unwrap(),
+            "{\"value\":\"Aes128Gcm\"}"
+        );
     }
 }
