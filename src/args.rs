@@ -11,7 +11,7 @@ pub enum Args {
     /// Update shadowsocks
     Update(UpdateArgs),
     /// Uninstall shadowsocks
-    Undo,
+    Uninstall,
 }
 
 #[derive(Debug, Parser)]

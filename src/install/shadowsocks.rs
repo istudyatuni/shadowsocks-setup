@@ -81,7 +81,7 @@ pub fn update(sh: &Shell, args: UpdateArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn undo(sh: &Shell) -> Result<()> {
+pub fn uninstall(sh: &Shell) -> Result<()> {
     cmd!(sh, "systemctl disable ssserver").run()?;
 
     let to_backup = [CONFIG_FILE];
@@ -97,7 +97,7 @@ pub fn undo(sh: &Shell) -> Result<()> {
             }
         }
         match fs::rename(f, &new_name) {
-            Ok(_) => println!("[undo] saved {f} to {new_name}"),
+            Ok(_) => println!("[uninstall] saved {f} to {new_name}"),
             Err(e) => eprintln!("Couldn't remove {f}: {e}"),
         };
     }
@@ -110,7 +110,7 @@ pub fn undo(sh: &Shell) -> Result<()> {
     ];
     for f in to_remove {
         match fs::remove_file(f) {
-            Ok(_) => println!("[undo] removed {f}"),
+            Ok(_) => println!("[uninstall] removed {f}"),
             Err(e) => eprintln!("Couldn't remove {f}: {e}"),
         };
     }
@@ -160,7 +160,8 @@ fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
 
 fn download(sh: &Shell, version: &Version) -> Result<()> {
     let url = download_url(version);
-    fs::create_dir_all(version.to_string()).context("failed to create version dir for artifacts")?;
+    fs::create_dir_all(version.to_string())
+        .context("failed to create version dir for artifacts")?;
 
     let _new_dir = sh.push_dir(version.to_string());
 
