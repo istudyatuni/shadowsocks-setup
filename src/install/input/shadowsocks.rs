@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::ValueEnum;
-use dialoguer::{Confirm, Input, Select, theme::ColorfulTheme};
+use inquire::{Confirm, CustomType, Select, Text};
 use serde::{Deserialize, Serialize};
 
 use crate::{args::InstallArgs, cipher::Cipher, version::Version};
@@ -36,10 +36,9 @@ impl Install {
         if let Some(version) = installed_version
             && let Some(input_version) = &asker.version
             && version == *input_version
-            && Confirm::new()
-                .with_prompt("Shadowsocks v{version} already installed, continue?")
-                .show_default(false)
-                .interact()?
+            && Confirm::new("Shadowsocks v{version} already installed, continue?")
+                .with_default(false)
+                .prompt()?
         {
             return Err(Error::Aborted);
         }
@@ -126,59 +125,55 @@ impl DataInput {
     }
     fn ask_server_port(&mut self) -> Result<()> {
         self.server_port = Some(
-            Input::with_theme(&ColorfulTheme::default())
-                .with_prompt("Server port")
-                .with_initial_text(
+            CustomType::<u32>::new("Server port")
+                .with_starting_input(
                     self.server_port
                         .map(|p| ToString::to_string(&p))
-                        .unwrap_or_default(),
+                        .unwrap_or_default()
+                        .as_str(),
                 )
-                .validate_with(super::validate::validate_net_port)
-                .interact_text()?,
+                .with_error_message("Invalid number")
+                .with_validator(super::validate::validate_net_port)
+                .prompt()?,
         );
         self.save_state();
         Ok(())
     }
     fn ask_server_password(&mut self) -> Result<()> {
         self.server_password = Some(
-            Input::with_theme(&ColorfulTheme::default())
-                .with_prompt("Server password")
-                .with_initial_text(self.server_password.as_deref().unwrap_or_default())
-                .interact_text()?,
+            Text::new("Server password")
+                .with_initial_value(self.server_password.as_deref().unwrap_or_default())
+                .prompt()?,
         );
         self.save_state();
         Ok(())
     }
     fn ask_cipher(&mut self) -> Result<()> {
-        if self.cipher.is_some() {
-            return Ok(());
-        }
-
         let items = Cipher::value_variants();
-        let selected = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Cipher")
-            .items(items)
-            .default(0)
-            .interact()?;
+        let start = if let Some(cipher) = self.cipher {
+            items.iter().position(|&i| i == cipher).unwrap_or_default()
+        } else {
+            0
+        };
+        let cipher = Select::new("Cipher", items.to_vec())
+            .with_starting_cursor(start)
+            .prompt()?;
 
-        self.cipher = Some(items[selected]);
+        self.cipher = Some(cipher);
         self.save_state();
         Ok(())
     }
     fn ask_version(&mut self, latest_version: Version) -> Result<()> {
         self.version = Some(
-            Input::<String>::with_theme(&ColorfulTheme::default())
-                .with_prompt("Shadowsocks version")
-                .with_initial_text(
+            CustomType::<Version>::new("Shadowsocks version")
+                .with_starting_input(
                     self.version
                         .as_ref()
                         .unwrap_or(&latest_version)
-                        .as_prefixed(),
+                        .as_prefixed()
+                        .as_str(),
                 )
-                .validate_with(super::validate::validate_version)
-                .interact_text()?
-                .parse()
-                .expect("should be validated"),
+                .prompt()?,
         );
         self.save_state();
         Ok(())
@@ -191,7 +186,7 @@ pub enum Error {
     Aborted,
 
     #[error("{0}")]
-    Dialog(#[from] dialoguer::Error),
+    Inquire(#[from] inquire::error::InquireError),
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]

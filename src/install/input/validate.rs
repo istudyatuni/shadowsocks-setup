@@ -1,16 +1,13 @@
-use crate::version::Version;
+use std::error::Error;
 
-pub fn validate_net_port(value: &u32) -> Result<(), &'static str> {
+use inquire::validator::Validation;
+
+pub fn validate_net_port(value: &u32) -> Result<Validation, Box<dyn Error + Send + Sync>> {
     const MAX_PORT: u32 = (1 << 16) - 1;
 
     if !matches!(value, 1..=MAX_PORT) {
-        return Err("port number out of range");
+        return Ok(Validation::Invalid("Port number out of range".into()));
     }
-    Ok(())
-}
 
-#[expect(clippy::ptr_arg)]
-pub fn validate_version(value: &String) -> Result<(), &'static str> {
-    let _: Version = value.parse().map_err(|_| "invalid version format")?;
-    Ok(())
+    Ok(Validation::Valid)
 }
