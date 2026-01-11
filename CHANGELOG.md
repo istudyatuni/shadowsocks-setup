@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.1.5 (2026-01-11)
+
 ### Features
 
 - Check if shadowsocks already installed
