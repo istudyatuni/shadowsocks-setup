@@ -14,11 +14,23 @@ pub enum Cipher {
 
 impl Display for Cipher {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
-            Cipher::Aes256Gcm => "aes-256-gcm",
-            Cipher::Chacha20IetfPoly1305 => "chacha20-ietf-poly1305",
-            Cipher::Aes128Gcm => "aes-128-gcm",
+        let Some(value) = self.to_possible_value() else {
+            return "-".fmt(f);
         };
-        s.fmt(f)
+        value.get_name().fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cipher_fmt() {
+        use Cipher::*;
+
+        assert_eq!(Aes256Gcm.to_string(), "aes-256-gcm");
+        assert_eq!(Chacha20IetfPoly1305.to_string(), "chacha20-ietf-poly1305");
+        assert_eq!(Aes128Gcm.to_string(), "aes-128-gcm");
     }
 }
