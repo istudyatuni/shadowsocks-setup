@@ -160,16 +160,20 @@ fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
 
 fn download(sh: &Shell, version: &Version) -> Result<()> {
     let url = download_url(version);
+    fs::create_dir_all(version.to_string()).context("failed to create version dir for artifacts")?;
+
+    let _new_dir = sh.push_dir(version.to_string());
+
     cmd!(sh, "wget --no-clobber {url}").run()?;
     cmd!(sh, "wget --no-clobber {url}.sha256").run()?;
 
     let file = archive_filename(version);
     cmd!(sh, "sha256sum --check {file}.sha256").run()?;
 
-    let version: &str = version;
-    fs::create_dir_all(version).context("failed to create version dir for artifacts")?;
-    cmd!(sh, "tar -xf {file} -C {version}").run()?;
+    cmd!(sh, "tar -xf {file}").run()?;
     cmd!(sh, "cp ssservice {SSSERVICE_BIN}").run()?;
+
+    drop(_new_dir);
 
     Ok(())
 }
