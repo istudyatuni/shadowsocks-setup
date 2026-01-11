@@ -1,7 +1,11 @@
-use std::{fs, path::PathBuf, str::FromStr};
+use std::{
+    fs,
+    net::{IpAddr, Ipv4Addr},
+    path::PathBuf,
+    str::FromStr,
+};
 
 use anyhow::{anyhow, bail, Context, Result};
-use pnet::datalink;
 use serde_json::{json, to_string_pretty};
 use xshell::{cmd, Shell};
 
@@ -9,7 +13,7 @@ use super::input::shadowsocks::Install;
 use crate::{
     args::{InstallArgs, UpdateArgs},
     github::get_latest_release_tag,
-    install::input::shadowsocks::Update,
+    install::{input::shadowsocks::Update, network::get_ipv4},
     version::Version,
 };
 
@@ -221,17 +225,14 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
 }
 
 fn print_config(sh: &Shell, install: &Install) -> Result<()> {
-    let all_interfaces = datalink::interfaces();
-    let default_interface = all_interfaces
-        .iter()
-        .find(|e| e.is_up() && !e.is_loopback() && !e.ips.is_empty())
-        .expect("Couldn't find IP address");
-    let server_ip = default_interface
-        .ips
-        .iter()
-        .find(|e| e.is_ipv4())
-        .expect("No IPv4 address")
-        .ip();
+    const DEFAULT_IP: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
+    let server_ip = match get_ipv4() {
+        Ok(ip) => ip,
+        Err(e) => {
+            eprintln!("[error] {e}, using {DEFAULT_IP}");
+            DEFAULT_IP
+        }
+    };
 
     let client_config = json!({
         "server": server_ip,
