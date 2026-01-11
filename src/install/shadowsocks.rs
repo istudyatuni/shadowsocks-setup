@@ -14,6 +14,7 @@ use crate::{
     args::{InstallArgs, UpdateArgs},
     github::get_latest_release_tag,
     install::{
+        check_requirements,
         input::shadowsocks::Update,
         network::{get_ipv4, open_firewall_ports_and_enable},
     },
@@ -146,23 +147,6 @@ fn get_installed_version(sh: &Shell) -> Option<Version> {
         .split_whitespace()
         .last()?;
     Version::from_str(version).ok()
-}
-
-fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
-    println!("[prepare] checking required executables");
-    let mut missed = false;
-    for r in bin_reqs {
-        if cmd!(sh, "which {r}").quiet().ignore_stdout().run().is_err() {
-            missed = true;
-            eprintln!("[error] {r} not found");
-        }
-    }
-
-    if missed {
-        bail!("some required executables is not found")
-    }
-
-    Ok(())
 }
 
 fn download(sh: &Shell, version: &Version) -> Result<()> {
