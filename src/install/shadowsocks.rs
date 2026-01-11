@@ -96,13 +96,12 @@ pub fn uninstall(sh: &Shell) -> Result<()> {
     for f in to_backup {
         let mut new_name = format!("{f}.bak");
         // if backup already exists, find first non-existing name like "{f}.bak1"
-        if PathBuf::from(&new_name).exists() {
-            if let Some(name) = (1..)
+        if PathBuf::from(&new_name).exists()
+            && let Some(name) = (1..)
                 .map(|i| format!("{new_name}{i}"))
                 .find(|name| PathBuf::from(name).exists())
-            {
-                new_name = name;
-            }
+        {
+            new_name = name;
         }
         match fs::rename(f, &new_name) {
             Ok(_) => println!("[uninstall] saved {f} to {new_name}"),

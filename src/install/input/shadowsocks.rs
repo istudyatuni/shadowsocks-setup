@@ -33,17 +33,15 @@ impl Install {
         };
         asker.ask_version(latest_version)?;
 
-        if let Some(version) = installed_version {
-            if let Some(input_version) = &asker.version {
-                if version == *input_version
-                    && Confirm::new()
-                        .with_prompt("Shadowsocks v{version} already installed, continue?")
-                        .show_default(false)
-                        .interact()?
-                {
-                    return Err(Error::Aborted);
-                }
-            }
+        if let Some(version) = installed_version
+            && let Some(input_version) = &asker.version
+            && version == *input_version
+            && Confirm::new()
+                .with_prompt("Shadowsocks v{version} already installed, continue?")
+                .show_default(false)
+                .interact()?
+        {
+            return Err(Error::Aborted);
         }
 
         asker.ask_server_port()?;
