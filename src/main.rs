@@ -1,6 +1,6 @@
 use std::fs::create_dir_all;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use clap::Parser;
 use xshell::Shell;
 
@@ -22,7 +22,9 @@ fn main() -> Result<()> {
     let sh = Shell::new()?;
 
     // disable in dev build
-    if cfg!(not(debug_assertions)) && sudo::check() != sudo::RunningAs::Root {
+    if cfg!(not(debug_assertions))
+        && sudo::escalate_if_needed().map_err(|e| anyhow!("{e}"))? != sudo::RunningAs::Root
+    {
         bail!("This script requires sudo");
     }
 

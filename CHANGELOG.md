@@ -5,6 +5,7 @@
 - Check if shadowsocks already installed
 - Ask install parameters interactively
 - Support update
+- Ask sudo password if needed
 
 ## 0.1.4 (2026-01-10)
 
