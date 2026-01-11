@@ -26,8 +26,12 @@ const SYSCTL_CONF_DATA: &str = include_str!("../../static/sysctl.conf");
 
 pub fn install(sh: &Shell, args: InstallArgs) -> Result<()> {
     let installed_version = get_installed_version(sh);
-    eprintln!("[install] loading latest version");
-    let latest_version = get_latest_ss_version()?;
+    let latest_version = if let Some(version) = &args.version {
+        version.clone()
+    } else {
+        eprintln!("[install] loading latest version");
+        get_latest_ss_version()?
+    };
     let install = Install::ask(args, installed_version, latest_version)?;
 
     check_requirements(sh)?;
