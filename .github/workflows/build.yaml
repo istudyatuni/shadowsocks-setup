@@ -12,16 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: '1.92'
 
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: install tools
         run: nix profile add "nixpkgs#just" && just -V
-
-      - uses: Swatinem/rust-cache@v2
 
       - run: just build-ci
 
