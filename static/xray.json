@@ -48,7 +48,7 @@
           "certificates": [
             {
               "certificateFile": "VAR_HOME/xray-cert/xray.crt",
-              "keyFile": "HOME/xray-cert/xray.key"
+              "keyFile": "VAR_HOME/xray-cert/xray.key"
             }
           ]
         }

@@ -1,5 +1,7 @@
 #![expect(unused)]
 
+use std::path::PathBuf;
+
 use anyhow::{Context, Result, anyhow, bail};
 use xshell::{Shell, cmd};
 
@@ -13,6 +15,9 @@ use crate::{
 const DL_URL: &str = "https://github.com/XTLS/Xray-core/releases/download";
 const DL_FILE: &str = "Xray-linux-64.zip";
 
+const ETC_DIR: &str = "/usr/local/etc/xray";
+const SYSTEMD_DIR: &str = "/etc/systemd/system";
+const NGINX_DIR: &str = "/etc/nginx";
 const XRAY_BIN: &str = "/usr/local/bin/xray";
 
 const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
@@ -22,8 +27,10 @@ const XRAY_SERVICE: &str = include_str!("../../static/xray.service");
 
 const INSTALL_EXE_REQUIRED: &[&str] = &[
     "cp",
+    "chmod",
+    "sh",
     "sha512sum",
-    "sysctl",
+    // "sysctl",
     "systemctl",
     "ufw",
     "unzip",
@@ -31,30 +38,14 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 ];
 
 pub fn install(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
-    let vars = [
-        (
-            "HOME",
-            std::env::var("HOME")
-                .inspect_err(|e| eprintln!("failed to get HOME variable"))
-                .unwrap_or_else(|_| "/root".to_string()),
-        ),
-        ("DOMAIN", args.domain),
-    ];
-    let replace_vars = |text: &str| {
-        let res = text.to_string();
-        for (name, value) in &vars {
-            res.replace(name, value);
-        }
-        res
-    };
-
     let latest_version = get_latest_xray_version()?;
     eprintln!("[install] latest version: {}", latest_version.as_prefixed());
 
     check_requirements(sh, INSTALL_EXE_REQUIRED)?;
     download(sh, &latest_version)?;
+    configure(sh, &args)?;
 
-    // open_firewall_ports_and_enable(sh, &[22, 443])?;
+    open_firewall_ports_and_enable(sh, &[22, 443])?;
 
     unimplemented!()
 }
@@ -107,12 +98,91 @@ fn download(sh: &Shell, version: &Version) -> Result<()> {
         .with_context(|| format!("failed to move {file} to {dir}"))?;
     }
 
-    std::fs::create_dir_all("/usr/local/etc/xray")
-        .context("failed to create /usr/local/etc/xray")?;
-
     drop(_new_dir);
 
     Ok(())
+}
+
+fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
+    let home = std::env::var("HOME")
+        .inspect_err(|e| eprintln!("failed to get HOME variable, using /root"))
+        .unwrap_or_else(|_| "/root".to_string());
+    let domain = &args.domain;
+    let vars = [
+        ("VAR_HOME", home.clone()),
+        ("VAR_DOMAIN", domain.clone()),
+        ("VAR_XRAY_BIN", XRAY_BIN.to_string()),
+        ("VAR_ETC_DIR", ETC_DIR.to_string()),
+    ];
+    let replace_vars = |text: &str| {
+        let res = text.to_string();
+        for (name, value) in &vars {
+            res.replace(name, value);
+        }
+        res
+    };
+
+    // configs
+
+    let etc = PathBuf::from(ETC_DIR);
+    std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {ETC_DIR}"))?;
+
+    let config_data = replace_vars(XRAY_CONF);
+    std::fs::write(etc.join("xray.json"), config_data)
+        .with_context(|| format!("failed to save xray.json to {ETC_DIR}"))?;
+
+    let systemd = PathBuf::from(SYSTEMD_DIR);
+    std::fs::create_dir_all(&systemd).with_context(|| format!("failed to create {SYSTEMD_DIR}"))?;
+    let service_data = replace_vars(XRAY_SERVICE);
+    std::fs::write(etc.join("xray.service"), service_data)
+        .with_context(|| format!("failed to save xray.service to {SYSTEMD_DIR}"))?;
+
+    let nginx = PathBuf::from(NGINX_DIR);
+    std::fs::create_dir_all(&nginx).with_context(|| format!("failed to create {NGINX_DIR}"))?;
+    let nxing_data = replace_vars(NGINX_CONF);
+    std::fs::write(etc.join("nginx.conf"), nxing_data)
+        .with_context(|| format!("failed to save nginx.conf to {NGINX_DIR}"))?;
+
+    if let Some(ref _url) = args.domain_renew_url {
+        todo!("cron to renew domain is not implemented yet");
+    }
+
+    // acme
+
+    let home_path = PathBuf::from(home);
+    let acme_bin = home_path.join(".acme.sh/acme.sh");
+    const ACME_INSTALL: &str = "/tmp/acme-install.sh";
+    cmd!(
+        sh,
+        "wget --no-clobber -O {ACME_INSTALL} https://get.acme.sh"
+    )
+    .run()?;
+    cmd!(sh, "sh {ACME_INSTALL}").run()?;
+
+    cmd!(sh, "{acme_bin} --upgrade --auto-upgrade").run()?;
+    cmd!(
+        sh,
+        "{acme_bin} --issue --server letsencrypt_test -d {domain} --keylength ec-256 --nginx"
+    )
+    .run()?;
+    cmd!(sh, "{acme_bin} --set-default-ca --server letsencrypt").run()?;
+    cmd!(
+        sh,
+        "{acme_bin} --issue --server letsencrypt -d {domain} --keylength ec-256 --nginx --force"
+    )
+    .run()?;
+
+    let dir = home_path.join("xray-cert");
+    std::fs::create_dir_all(&dir).with_context(|| format!("failed to create {}", dir.display()))?;
+
+    let dir_str = dir.display().to_string();
+    cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {dir_str}/xray.crt --key-file {dir_str}/xray.key").run()?;
+    cmd!(sh, "chmod +r {dir_str}/xray.key").run()?;
+
+    std::fs::write(dir.join("renew.sh"), replace_vars(ACME_RENEW_SH))
+        .context("failed to save renew.sh")?;
+
+    todo!("add acme renew to cron")
 }
 
 fn download_url(version: &Version) -> String {
