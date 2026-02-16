@@ -72,7 +72,7 @@ pub struct XrayInstallArgs {
 
     /// Server domain
     #[arg(long)]
-    pub domain: Option<String>,
+    pub domain: String,
 
     /// URL to renew domain
     #[arg(long)]

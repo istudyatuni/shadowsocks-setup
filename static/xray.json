@@ -1,0 +1,68 @@
+{
+  "dns": {
+    "servers": [
+      "https+local://1.1.1.1/dns-query",
+      "localhost"
+    ]
+  },
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "ip": [
+          "geoip:private"
+        ],
+        "outboundTag": "block"
+      },
+      {
+        "ip": [
+          "geoip:cn"
+        ],
+        "outboundTag": "block"
+      },
+      {
+        "domain": [
+          "geosite:category-ads-all"
+        ],
+        "outboundTag": "block"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "port": 443,
+      "protocol": "vless",
+      "settings": {
+        "decryption": "none",
+        "fallbacks": [
+          {
+            "dest": 8080
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": "http/1.1",
+          "certificates": [
+            {
+              "certificateFile": "VAR_HOME/xray-cert/xray.crt",
+              "keyFile": "HOME/xray-cert/xray.key"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    }
+  ]
+}
