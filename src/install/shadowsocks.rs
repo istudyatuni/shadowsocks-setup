@@ -11,7 +11,7 @@ use xshell::{Shell, cmd};
 
 use super::input::shadowsocks::Install;
 use crate::{
-    args::{InstallArgs, UpdateArgs},
+    args::{ShadowsocksInstallArgs, ShadowsocksUpdateArgs},
     github::get_latest_release_tag,
     install::{
         check_requirements,
@@ -48,7 +48,7 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 ];
 const UPDATE_EXE_REQUIRED: &[&str] = &["wget", "sha256sum", "tar", "systemctl", "cp"];
 
-pub fn install(sh: &Shell, args: InstallArgs) -> Result<()> {
+pub fn install(sh: &Shell, args: ShadowsocksInstallArgs) -> Result<()> {
     let installed_version = get_installed_version(sh);
     eprintln!("[install] loading latest version");
     let latest_version = get_latest_ss_version()?;
@@ -67,7 +67,7 @@ pub fn install(sh: &Shell, args: InstallArgs) -> Result<()> {
     Ok(())
 }
 
-pub fn update(sh: &Shell, args: UpdateArgs) -> Result<()> {
+pub fn update(sh: &Shell, args: ShadowsocksUpdateArgs) -> Result<()> {
     if get_installed_version(sh).is_none() {
         bail!("shadowsocks not installed")
     }

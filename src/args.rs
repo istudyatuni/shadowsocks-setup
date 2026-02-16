@@ -6,16 +6,29 @@ use crate::{cipher::Cipher, version::Version};
 #[derive(Debug, Parser)]
 #[clap(version)]
 pub enum Args {
+    Shadowsocks {
+        #[clap(subcommand)]
+        cmd: ShadowsocksArgs,
+    },
+    Xray {
+        #[clap(subcommand)]
+        cmd: XrayArgs,
+    },
+}
+
+/// Shadowsocks setup
+#[derive(Debug, Parser)]
+pub enum ShadowsocksArgs {
     /// Install shadowsocks
-    Install(InstallArgs),
+    Install(ShadowsocksInstallArgs),
     /// Update shadowsocks
-    Update(UpdateArgs),
+    Update(ShadowsocksUpdateArgs),
     /// Uninstall shadowsocks
     Uninstall,
 }
 
 #[derive(Debug, Parser)]
-pub struct InstallArgs {
+pub struct ShadowsocksInstallArgs {
     /// Server port
     #[arg(long)]
     pub port: Option<u32>,
@@ -34,8 +47,34 @@ pub struct InstallArgs {
 }
 
 #[derive(Debug, Parser)]
-pub struct UpdateArgs {
+pub struct ShadowsocksUpdateArgs {
     /// Shadowsocks version to install
     #[arg(long)]
     pub version: Option<Version>,
+}
+
+/// Xray setup
+#[derive(Debug, Parser)]
+pub enum XrayArgs {
+    /// Install xray
+    Install(XrayInstallArgs),
+}
+
+#[derive(Debug, Parser)]
+pub struct XrayInstallArgs {
+    /// Enable xray api
+    #[arg(long, default_value_t = false)]
+    pub api: bool,
+
+    /// Xray api port
+    #[arg(long)]
+    pub api_port: Option<u32>,
+
+    /// Server domain
+    #[arg(long)]
+    pub domain: Option<String>,
+
+    /// URL to renew domain
+    #[arg(long)]
+    pub domain_renew_url: Option<String>,
 }

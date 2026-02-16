@@ -4,7 +4,7 @@ use clap::ValueEnum;
 use inquire::{Confirm, CustomType, Select, Text};
 use serde::{Deserialize, Serialize};
 
-use crate::{args::InstallArgs, cipher::Cipher, version::Version};
+use crate::{args::ShadowsocksInstallArgs, cipher::Cipher, version::Version};
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -20,7 +20,7 @@ pub struct Install {
 
 impl Install {
     pub fn ask(
-        args: InstallArgs,
+        args: ShadowsocksInstallArgs,
         installed_version: Option<Version>,
         latest_version: Version,
     ) -> Result<Self> {
@@ -108,7 +108,7 @@ impl DataInput {
         std::fs::remove_file(TEMP_PATH)?;
         Ok(())
     }
-    fn update_from_args(mut self, args: InstallArgs) -> Self {
+    fn update_from_args(mut self, args: ShadowsocksInstallArgs) -> Self {
         if let port @ Some(_) = args.port {
             self.server_port = port;
         }

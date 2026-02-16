@@ -4,7 +4,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::Parser;
 use xshell::Shell;
 
-use args::Args;
+use args::{Args, ShadowsocksArgs, XrayArgs};
 
 mod args;
 mod cipher;
@@ -33,9 +33,14 @@ fn main() -> Result<()> {
     std::env::set_current_dir(ARTIFACTS_DIR).context("failed to change current dir")?;
 
     match args {
-        Args::Install(args) => install::shadowsocks::install(&sh, args)?,
-        Args::Update(args) => install::shadowsocks::update(&sh, args)?,
-        Args::Uninstall => install::shadowsocks::uninstall(&sh)?,
+        Args::Shadowsocks { cmd } => match cmd {
+            ShadowsocksArgs::Install(args) => install::shadowsocks::install(&sh, args)?,
+            ShadowsocksArgs::Update(args) => install::shadowsocks::update(&sh, args)?,
+            ShadowsocksArgs::Uninstall => install::shadowsocks::uninstall(&sh)?,
+        },
+        Args::Xray { cmd } => match cmd {
+            XrayArgs::Install(args) => install::xray::install(&sh, args)?,
+        },
     }
 
     Ok(())

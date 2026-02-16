@@ -4,6 +4,7 @@ use xshell::{Shell, cmd};
 pub mod input;
 mod network;
 pub mod shadowsocks;
+pub mod xray;
 
 pub fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
     println!("[prepare] checking required executables");
