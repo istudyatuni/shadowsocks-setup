@@ -1,14 +1,14 @@
 #![expect(unused)]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use xshell::{Shell, cmd};
 
 use crate::{
-    args::XrayInstallArgs,
+    args::{XrayInstallArgs, XrayInstallStep},
     github::get_latest_release_tag,
     install::{check_requirements, network::open_firewall_ports_and_enable},
     version::Version,
@@ -46,11 +46,30 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 ];
 
 pub fn install(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
-    let latest_version = get_latest_xray_version()?;
-    eprintln!("[install] latest version: {}", latest_version.as_prefixed());
+    const STATE_FILE: &str = "/tmp/xray-install-state.json";
 
-    check_requirements(sh, INSTALL_EXE_REQUIRED)?;
-    download(sh, &latest_version)?;
+    let state = if !PathBuf::from(STATE_FILE).exists() {
+        InstallState::default()
+    } else {
+        let state = std::fs::read_to_string(STATE_FILE).context("failed to read install state")?;
+        serde_json::from_str(&state).context("failed to deserialize install state")?
+    };
+
+    match args.next_step {
+        XrayInstallStep::DownloadXray => {
+            let latest_version = get_latest_xray_version()?;
+            eprintln!("[install] latest version: {}", latest_version.as_prefixed());
+
+            check_requirements(sh, INSTALL_EXE_REQUIRED)?;
+            let dl_dir = sh.current_dir().join(latest_version.to_string());
+            download(sh, &latest_version, &dl_dir)?;
+        }
+        XrayInstallStep::InstallXray => {
+            let Some(dl_dir) = state.download_dir else {
+                bail!("invalid state: no download_dir")
+            };
+        }
+    }
     open_firewall_ports_and_enable(sh, &[22, 80, 443])?;
 
     let home = std::env::var("HOME")
@@ -61,6 +80,8 @@ pub fn install(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
     let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
     configure(sh, &args, &mut users_config, acme, &home)?;
     print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
+
+    todo!("restart");
 
     Ok(())
 }
@@ -73,11 +94,10 @@ fn get_latest_xray_version() -> Result<Version> {
         .context("got invalid version from latest release")
 }
 
-fn download(sh: &Shell, version: &Version) -> Result<()> {
-    let dl_dir = sh.current_dir().join(version.to_string());
+fn download(sh: &Shell, version: &Version, dl_dir: &Path) -> Result<()> {
     let url = download_url(version);
     if !dl_dir.exists() {
-        std::fs::create_dir_all(&dl_dir).context("failed to create version dir for artifacts")?;
+        std::fs::create_dir_all(dl_dir).context("failed to create version dir for artifacts")?;
     }
 
     let _new_dir = sh.push_dir(dl_dir);
@@ -101,6 +121,15 @@ fn download(sh: &Shell, version: &Version) -> Result<()> {
     }
 
     cmd!(sh, "unzip {file}").run()?;
+
+    drop(_new_dir);
+
+    Ok(())
+}
+
+fn install_xray(sh: &Shell, dl_dir: &Path) -> Result<()> {
+    let _new_dir = sh.push_dir(dl_dir);
+
     std::fs::rename(sh.current_dir().join("xray"), XRAY_BIN)
         .context("failed to move xray to bin dir")?;
 
@@ -274,6 +303,11 @@ fn print_users_links(users: &[Client], domain: &str) {
 
 fn download_url(version: &Version) -> String {
     DL_URL.to_owned() + "/" + version.as_prefixed().as_str() + "/" + DL_FILE
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct InstallState {
+    download_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize)]

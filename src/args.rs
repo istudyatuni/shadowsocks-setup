@@ -1,4 +1,6 @@
-use clap::Parser;
+use std::fmt::Display;
+
+use clap::{Parser, ValueEnum};
 
 use crate::{cipher::Cipher, version::Version};
 
@@ -90,4 +92,44 @@ pub struct XrayInstallArgs {
     /// UUIDs of new users to add to config. Can be repeated or separated with ","
     #[arg(long = "add-user-id", value_delimiter = ',')]
     pub add_user_ids: Vec<String>,
+
+    /// Do not use directly. Used to separate root/non-root commands
+    #[arg(long, hide = true, default_value_t = XrayInstallStep::DownloadXray)]
+    pub next_step: XrayInstallStep,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum XrayInstallStep {
+    DownloadXray,
+    InstallXray,
+}
+
+impl Args {
+    pub fn need_root(&self) -> bool {
+        match self {
+            Self::Xray { cmd } => match cmd {
+                XrayArgs::Install(args) => args.next_step.need_root(),
+            },
+            _ => false,
+        }
+    }
+}
+
+impl XrayInstallStep {
+    pub fn need_root(self) -> bool {
+        match self {
+            Self::DownloadXray => false,
+            Self::InstallXray => true,
+        }
+    }
+}
+
+impl Display for XrayInstallStep {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::DownloadXray => "download-xray",
+            Self::InstallXray => "install-xray",
+        };
+        s.fmt(f)
+    }
 }

@@ -23,6 +23,7 @@ fn main() -> Result<()> {
 
     // disable in dev build
     if cfg!(not(debug_assertions))
+        && !args.need_root()
         && sudo::escalate_if_needed().map_err(|e| anyhow!("{e}"))? != sudo::RunningAs::Root
     {
         bail!("This script requires sudo");
