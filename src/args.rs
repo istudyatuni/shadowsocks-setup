@@ -81,7 +81,7 @@ pub struct XrayInstallArgs {
     /// Email for zerossl account
     // todo: check if this is optional
     #[arg(long)]
-    pub zerossl_email: Option<String>,
+    pub zerossl_email: String,
 
     /// Number of new users to add to config. Ignored when --add-user-id is used
     #[arg(long, default_value_t = 1)]

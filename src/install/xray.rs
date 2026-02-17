@@ -217,9 +217,8 @@ fn configure(sh: &Shell, args: &XrayInstallArgs, users_config: &mut UsersConfig)
     cmd!(sh, "{acme_bin} --upgrade --auto-upgrade").run()?;
 
     cmd!(sh, "{acme_bin} --set-default-ca --server zerossl").run()?;
-    if let Some(email) = &args.zerossl_email {
-        cmd!(sh, "{acme_bin} --register-account -m {email}").run()?;
-    }
+    let email = &args.zerossl_email;
+    cmd!(sh, "{acme_bin} --register-account -m {email}").run()?;
     cmd!(
         sh,
         "{acme_bin} --issue -d {domain} --keylength ec-256 --nginx"
