@@ -53,8 +53,13 @@ pub fn install(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
     download(sh, &latest_version)?;
     open_firewall_ports_and_enable(sh, &[22, 80, 443])?;
 
+    let home = std::env::var("HOME")
+        .inspect_err(|e| eprintln!("failed to get HOME variable, using /root"))
+        .unwrap_or_else(|_| "/root".to_string());
+
+    let acme = configure_cert(sh, &args, &home)?;
     let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
-    configure(sh, &args, &mut users_config)?;
+    configure(sh, &args, &mut users_config, acme, &home)?;
     print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
 
     Ok(())
@@ -114,15 +119,18 @@ fn download(sh: &Shell, version: &Version) -> Result<()> {
     Ok(())
 }
 
-fn configure(sh: &Shell, args: &XrayInstallArgs, users_config: &mut UsersConfig) -> Result<()> {
-    let home = std::env::var("HOME")
-        .inspect_err(|e| eprintln!("failed to get HOME variable, using /root"))
-        .unwrap_or_else(|_| "/root".to_string());
+fn configure(
+    sh: &Shell,
+    args: &XrayInstallArgs,
+    users_config: &mut UsersConfig,
+    acme: AcmeInstallResult,
+    home: &str,
+) -> Result<()> {
     let cron_dir = PathBuf::from(CRON_DIR);
 
     let domain = &args.domain;
     let vars = [
-        ("VAR_HOME", home.clone()),
+        ("VAR_HOME", home.to_string()),
         ("VAR_DOMAIN", domain.clone()),
         (
             "VAR_DOMAIN_RENEW_URL",
@@ -198,8 +206,20 @@ fn configure(sh: &Shell, args: &XrayInstallArgs, users_config: &mut UsersConfig)
         std::fs::write(path, domain_renew_cron).context("failed to write domain-renew cron")?;
     }
 
-    // acme
+    // acme cron
 
+    std::fs::write(acme.cert_dir.join("renew.sh"), replace_vars(ACME_RENEW_SH))
+        .context("failed to save renew.sh")?;
+
+    let cert_renew_cron = replace_vars(CRON_RENEW_CERT);
+    let path = cron_dir.join("cert-renew");
+    std::fs::write(path, cert_renew_cron).context("failed to write cert-renew cron")?;
+
+    Ok(())
+}
+
+fn configure_cert(sh: &Shell, args: &XrayInstallArgs, home: &str) -> Result<AcmeInstallResult> {
+    let domain = &args.domain;
     let home_path = PathBuf::from(home);
     let acme_bin = home_path.join(".acme.sh/acme.sh");
     const ACME_INSTALLER: &str = "/tmp/acme-install.sh";
@@ -235,14 +255,10 @@ fn configure(sh: &Shell, args: &XrayInstallArgs, users_config: &mut UsersConfig)
     cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir_str}/xray.crt --key-file {cert_dir_str}/xray.key").run()?;
     cmd!(sh, "chmod +r {cert_dir_str}/xray.key").run()?;
 
-    std::fs::write(cert_dir.join("renew.sh"), replace_vars(ACME_RENEW_SH))
-        .context("failed to save renew.sh")?;
-
-    let cert_renew_cron = replace_vars(CRON_RENEW_CERT);
-    let path = cron_dir.join("cert-renew");
-    std::fs::write(path, cert_renew_cron).context("failed to write cert-renew cron")?;
-
-    Ok(())
+    Ok(AcmeInstallResult {
+        bin: acme_bin,
+        cert_dir,
+    })
 }
 
 fn print_users_links(users: &[Client], domain: &str) {
@@ -311,4 +327,9 @@ impl UsersConfig {
         });
         self
     }
+}
+
+struct AcmeInstallResult {
+    bin: PathBuf,
+    cert_dir: PathBuf,
 }
