@@ -18,7 +18,7 @@ const DL_FILE: &str = "Xray-linux-64.zip";
 const CRON_DIR: &str = "/etc/cron.d";
 const SYSTEMD_DIR: &str = "/etc/systemd/system";
 const NGINX_DIR: &str = "/etc/nginx";
-const ETC_DIR: &str = "/usr/local/etc/xray";
+const XRAY_ETC_DIR: &str = "/usr/local/etc/xray";
 const XRAY_BIN: &str = "/usr/local/bin/xray";
 
 const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
@@ -120,7 +120,7 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
         ("VAR_DOMAIN", domain.clone()),
         ("VAR_DOMAIN_RENEW_URL", "TODO".to_string()),
         ("VAR_XRAY_BIN", XRAY_BIN.to_string()),
-        ("VAR_ETC_DIR", ETC_DIR.to_string()),
+        ("VAR_XRAY_ETC_DIR", XRAY_ETC_DIR.to_string()),
     ];
     let replace_vars = |text: &str| {
         let res = text.to_string();
@@ -133,12 +133,12 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
 
     // configs
 
-    let etc = PathBuf::from(ETC_DIR);
-    std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {ETC_DIR}"))?;
+    let etc = PathBuf::from(XRAY_ETC_DIR);
+    std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {XRAY_ETC_DIR}"))?;
 
     let config_data = replace_vars(XRAY_CONF);
-    std::fs::write(etc.join("xray.json"), config_data)
-        .with_context(|| format!("failed to save xray.json to {ETC_DIR}"))?;
+    std::fs::write(etc.join("05_main.json"), config_data)
+        .with_context(|| format!("failed to save 05_main.json to {XRAY_ETC_DIR}"))?;
 
     let systemd = PathBuf::from(SYSTEMD_DIR);
     std::fs::create_dir_all(&systemd).with_context(|| format!("failed to create {SYSTEMD_DIR}"))?;

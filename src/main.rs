@@ -17,9 +17,11 @@ const ARTIFACTS_DIR: &str = "artifacts";
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[expect(unused)]
 fn main() -> Result<()> {
     let args = Args::parse();
     let sh = Shell::new()?;
+    return Ok(());
 
     // disable in dev build
     if cfg!(not(debug_assertions))
