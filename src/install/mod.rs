@@ -10,7 +10,7 @@ pub fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
     println!("[prepare] checking required executables");
     let mut missed = false;
     for r in bin_reqs {
-        if cmd!(sh, "which {r}").quiet().ignore_stdout().run().is_err() {
+        if !exe_in_path(sh, r) {
             missed = true;
             eprintln!("[error] {r} not found");
         }
@@ -21,4 +21,12 @@ pub fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn exe_in_path(sh: &Shell, exe: &str) -> bool {
+    cmd!(sh, "which {exe}")
+        .quiet()
+        .ignore_stdout()
+        .run()
+        .is_ok()
 }

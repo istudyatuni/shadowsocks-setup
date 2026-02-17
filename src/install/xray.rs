@@ -15,9 +15,10 @@ use crate::{
 const DL_URL: &str = "https://github.com/XTLS/Xray-core/releases/download";
 const DL_FILE: &str = "Xray-linux-64.zip";
 
-const ETC_DIR: &str = "/usr/local/etc/xray";
+const CRON_DIR: &str = "/etc/cron.d";
 const SYSTEMD_DIR: &str = "/etc/systemd/system";
 const NGINX_DIR: &str = "/etc/nginx";
+const ETC_DIR: &str = "/usr/local/etc/xray";
 const XRAY_BIN: &str = "/usr/local/bin/xray";
 
 const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
@@ -152,23 +153,23 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
     let home_path = PathBuf::from(home);
     let acme_bin = home_path.join(".acme.sh/acme.sh");
     const ACME_INSTALL: &str = "/tmp/acme-install.sh";
-    cmd!(
-        sh,
-        "wget --no-clobber -O {ACME_INSTALL} https://get.acme.sh"
-    )
-    .run()?;
-    cmd!(sh, "sh {ACME_INSTALL}").run()?;
+    if !PathBuf::from(ACME_INSTALL).exists() {
+        cmd!(
+            sh,
+            "wget --no-clobber -O {ACME_INSTALL} https://get.acme.sh"
+        )
+        .run()?;
+    }
+    if !acme_bin.exists() {
+	    cmd!(sh, "sh {ACME_INSTALL}").run()?;
+    }
 
     cmd!(sh, "{acme_bin} --upgrade --auto-upgrade").run()?;
+
+    cmd!(sh, "{acme_bin} --set-default-ca --server zerossl").run()?;
     cmd!(
         sh,
-        "{acme_bin} --issue --server letsencrypt_test -d {domain} --keylength ec-256 --nginx"
-    )
-    .run()?;
-    cmd!(sh, "{acme_bin} --set-default-ca --server letsencrypt").run()?;
-    cmd!(
-        sh,
-        "{acme_bin} --issue --server letsencrypt -d {domain} --keylength ec-256 --nginx --force"
+        "{acme_bin} --issue -d {domain} --keylength ec-256 --nginx"
     )
     .run()?;
 
