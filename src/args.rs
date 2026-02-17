@@ -63,12 +63,12 @@ pub enum XrayArgs {
 #[derive(Debug, Parser)]
 pub struct XrayInstallArgs {
     /// Enable xray api
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     pub api: bool,
 
     /// Xray api port
-    #[arg(long)]
-    pub api_port: Option<u32>,
+    #[arg(long, default_value_t = 47329)]
+    pub api_port: u32,
 
     /// Server domain
     #[arg(long)]

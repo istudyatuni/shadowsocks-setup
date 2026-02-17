@@ -23,7 +23,8 @@ const XRAY_BIN: &str = "/usr/local/bin/xray";
 
 const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
 const NGINX_CONF: &str = include_str!("../../static/nginx.conf");
-const XRAY_CONF: &str = include_str!("../../static/xray.json");
+const XRAY_CONF: &str = include_str!("../../static/xray_05_main.json");
+const XRAY_API_CONF: &str = include_str!("../../static/xray_01_api.json");
 const XRAY_SERVICE: &str = include_str!("../../static/xray.service");
 
 const CRON_RENEW_CERT: &str = include_str!("../../static/cert-renew.cron");
@@ -34,7 +35,6 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
     "chmod",
     "sh",
     "sha512sum",
-    // "sysctl",
     "systemctl",
     "ufw",
     "unzip",
@@ -120,6 +120,7 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
         ("VAR_DOMAIN", domain.clone()),
         ("VAR_DOMAIN_RENEW_URL", "TODO".to_string()),
         ("VAR_XRAY_BIN", XRAY_BIN.to_string()),
+        ("VAR_XRAY_API_PORT", args.api_port.to_string()),
         ("VAR_XRAY_ETC_DIR", XRAY_ETC_DIR.to_string()),
     ];
     let replace_vars = |text: &str| {
@@ -139,6 +140,13 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
     let config_data = replace_vars(XRAY_CONF);
     std::fs::write(etc.join("05_main.json"), config_data)
         .with_context(|| format!("failed to save 05_main.json to {XRAY_ETC_DIR}"))?;
+    if args.api {
+        let config_data = replace_vars(XRAY_API_CONF);
+        // writing 01_api before 05_main because routing.rules[0] from 01_api
+        // should be before other rules in 05_main after loading
+        std::fs::write(etc.join("01_api.json"), config_data)
+            .with_context(|| format!("failed to save 01_api.json to {XRAY_ETC_DIR}"))?;
+    }
 
     let systemd = PathBuf::from(SYSTEMD_DIR);
     std::fs::create_dir_all(&systemd).with_context(|| format!("failed to create {SYSTEMD_DIR}"))?;
@@ -180,7 +188,7 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
 
     cmd!(sh, "{acme_bin} --set-default-ca --server zerossl").run()?;
     if let Some(email) = &args.zerossl_email {
-	    cmd!(sh, "{acme_bin} --register-account -m {email}").run()?;
+        cmd!(sh, "{acme_bin} --register-account -m {email}").run()?;
     }
     cmd!(
         sh,
