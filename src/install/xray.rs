@@ -3,6 +3,8 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow, bail};
+use serde::Serialize;
+use uuid::Uuid;
 use xshell::{Shell, cmd};
 
 use crate::{
@@ -20,6 +22,8 @@ const SYSTEMD_DIR: &str = "/etc/systemd/system";
 const NGINX_DIR: &str = "/etc/nginx";
 const XRAY_ETC_DIR: &str = "/usr/local/etc/xray";
 const XRAY_BIN: &str = "/usr/local/bin/xray";
+
+const VLESS_INBOUND_TAG: &str = "vless";
 
 const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
 const NGINX_CONF: &str = include_str!("../../static/nginx.conf");
@@ -118,7 +122,13 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
     let vars = [
         ("VAR_HOME", home.clone()),
         ("VAR_DOMAIN", domain.clone()),
-        ("VAR_DOMAIN_RENEW_URL", "TODO".to_string()),
+        (
+            "VAR_DOMAIN_RENEW_URL",
+            args.domain_renew_url
+                .clone()
+                .unwrap_or_else(|| "NOT_SET".to_string()),
+        ),
+        ("VAR_VLESS_INBOUND_TAG", VLESS_INBOUND_TAG.to_string()),
         ("VAR_XRAY_BIN", XRAY_BIN.to_string()),
         ("VAR_XRAY_API_PORT", args.api_port.to_string()),
         ("VAR_XRAY_ETC_DIR", XRAY_ETC_DIR.to_string()),
@@ -132,7 +142,7 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
         res
     };
 
-    // configs
+    // xray configs
 
     let etc = PathBuf::from(XRAY_ETC_DIR);
     std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {XRAY_ETC_DIR}"))?;
@@ -147,12 +157,29 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
         std::fs::write(etc.join("01_api.json"), config_data)
             .with_context(|| format!("failed to save 01_api.json to {XRAY_ETC_DIR}"))?;
     }
+    let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
+    if !args.add_user_ids.is_empty() {
+        users_config.reserve_users_space(args.add_user_ids.len());
+        for id in &args.add_user_ids {
+            users_config.add_user_with_id(id);
+        }
+    } else {
+        users_config.add_users(args.add_users_count);
+    }
+    let config_data =
+        serde_json::to_string_pretty(&users_config).context("failed to serialize users config")?;
+    std::fs::write(etc.join("08_users.json"), config_data)
+        .with_context(|| format!("failed to save 08_users.json to {XRAY_ETC_DIR}"))?;
+
+    // systemd config
 
     let systemd = PathBuf::from(SYSTEMD_DIR);
     std::fs::create_dir_all(&systemd).with_context(|| format!("failed to create {SYSTEMD_DIR}"))?;
     let service_data = replace_vars(XRAY_SERVICE);
     std::fs::write(etc.join("xray.service"), service_data)
         .with_context(|| format!("failed to save xray.service to {SYSTEMD_DIR}"))?;
+
+    // nginx config
 
     let nginx = PathBuf::from(NGINX_DIR);
     if !nginx.exists() {
@@ -161,6 +188,8 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
     let nxing_data = replace_vars(NGINX_CONF);
     std::fs::write(etc.join("nginx.conf"), nxing_data)
         .with_context(|| format!("failed to save nginx.conf to {NGINX_DIR}"))?;
+
+    // cron config
 
     if let Some(_url) = &args.domain_renew_url {
         let domain_renew_cron = replace_vars(CRON_RENEW_DOMAIN);
@@ -213,9 +242,62 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
     let path = cron_dir.join("cert-renew");
     std::fs::write(path, cert_renew_cron).context("failed to write cert-renew cron")?;
 
-    todo!()
+    Ok(())
 }
 
 fn download_url(version: &Version) -> String {
     DL_URL.to_owned() + "/" + version.as_prefixed().as_str() + "/" + DL_FILE
+}
+
+#[derive(Debug, Serialize)]
+struct UsersConfig {
+    inbounds: Vec<InboundConfig>,
+}
+
+#[derive(Debug, Serialize)]
+struct InboundConfig {
+    tag: String,
+    settings: InboundConfigSettings,
+}
+
+#[derive(Debug, Serialize)]
+struct InboundConfigSettings {
+    clients: Vec<Client>,
+}
+
+#[derive(Debug, Serialize)]
+struct Client {
+    id: String,
+    flow: String,
+}
+
+impl UsersConfig {
+    fn empty(inbound_tag: &str) -> Self {
+        Self {
+            inbounds: vec![InboundConfig {
+                tag: inbound_tag.to_string(),
+                settings: InboundConfigSettings { clients: vec![] },
+            }],
+        }
+    }
+    fn reserve_users_space(&mut self, count: usize) {
+        self.inbounds[0].settings.clients.reserve(count);
+    }
+    fn add_users(&mut self, count: usize) -> &mut Self {
+        self.reserve_users_space(count);
+        for _ in 0..count {
+            self.add_user();
+        }
+        self
+    }
+    fn add_user(&mut self) -> &mut Self {
+        self.add_user_with_id(Uuid::new_v4().to_string().as_str())
+    }
+    fn add_user_with_id(&mut self, id: &str) -> &mut Self {
+        self.inbounds[0].settings.clients.push(Client {
+            id: id.to_string(),
+            flow: "xtls-rprx-vision".to_string(),
+        });
+        self
+    }
 }

@@ -21,6 +21,7 @@ const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 fn main() -> Result<()> {
     let args = Args::parse();
     let sh = Shell::new()?;
+    eprintln!("args: {args:#?}");
     return Ok(());
 
     // disable in dev build

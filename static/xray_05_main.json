@@ -30,6 +30,7 @@
   },
   "inbounds": [
     {
+      "tag": "VAR_VLESS_INBOUND_TAG",
       "port": 443,
       "protocol": "vless",
       "settings": {
