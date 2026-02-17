@@ -58,7 +58,6 @@ fn get_latest_xray_version() -> Result<Version> {
         .context("got invalid version from latest release")
 }
 
-#[expect(clippy::trim_split_whitespace)]
 fn download(sh: &Shell, version: &Version) -> Result<()> {
     let url = download_url(version);
     std::fs::create_dir_all(version.to_string())
@@ -70,11 +69,11 @@ fn download(sh: &Shell, version: &Version) -> Result<()> {
     cmd!(sh, "wget --no-clobber {url}.dgst").run()?;
 
     let file = DL_FILE;
-    let hash = cmd!(sh, "sha256sum {file}")
+    let hash = cmd!(sh, "sha512sum {file}")
         .read()
-        .context("failed to read sha256sum output")?;
-    let Some(hash) = hash.trim().split_whitespace().next() else {
-        bail!("hash not found in sha256sum output")
+        .context("failed to read sha512sum output")?;
+    let Some(hash) = hash.split_whitespace().next() else {
+        bail!("hash not found in sha512sum output")
     };
 
     let dgst =
@@ -119,6 +118,7 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
         for (name, value) in &vars {
             res.replace(name, value);
         }
+        // todo: check no VAR_ remains
         res
     };
 
