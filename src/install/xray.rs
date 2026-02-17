@@ -26,6 +26,9 @@ const NGINX_CONF: &str = include_str!("../../static/nginx.conf");
 const XRAY_CONF: &str = include_str!("../../static/xray.json");
 const XRAY_SERVICE: &str = include_str!("../../static/xray.service");
 
+const CRON_RENEW_CERT: &str = include_str!("../../static/cert-renew.cron");
+const CRON_RENEW_DOMAIN: &str = include_str!("../../static/domain-renew.cron");
+
 const INSTALL_EXE_REQUIRED: &[&str] = &[
     "cp",
     "chmod",
@@ -60,11 +63,13 @@ fn get_latest_xray_version() -> Result<Version> {
 }
 
 fn download(sh: &Shell, version: &Version) -> Result<()> {
+    let dl_dir = sh.current_dir().join(version.to_string());
     let url = download_url(version);
-    std::fs::create_dir_all(version.to_string())
-        .context("failed to create version dir for artifacts")?;
+    if !dl_dir.exists() {
+        std::fs::create_dir_all(&dl_dir).context("failed to create version dir for artifacts")?;
+    }
 
-    let _new_dir = sh.push_dir(version.to_string());
+    let _new_dir = sh.push_dir(dl_dir);
 
     cmd!(sh, "wget --no-clobber {url}").run()?;
     cmd!(sh, "wget --no-clobber {url}.dgst").run()?;
@@ -107,10 +112,13 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
     let home = std::env::var("HOME")
         .inspect_err(|e| eprintln!("failed to get HOME variable, using /root"))
         .unwrap_or_else(|_| "/root".to_string());
+    let cron_dir = PathBuf::from(CRON_DIR);
+
     let domain = &args.domain;
     let vars = [
         ("VAR_HOME", home.clone()),
         ("VAR_DOMAIN", domain.clone()),
+        ("VAR_DOMAIN_RENEW_URL", "TODO".to_string()),
         ("VAR_XRAY_BIN", XRAY_BIN.to_string()),
         ("VAR_ETC_DIR", ETC_DIR.to_string()),
     ];
@@ -139,13 +147,17 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
         .with_context(|| format!("failed to save xray.service to {SYSTEMD_DIR}"))?;
 
     let nginx = PathBuf::from(NGINX_DIR);
-    std::fs::create_dir_all(&nginx).with_context(|| format!("failed to create {NGINX_DIR}"))?;
+    if !nginx.exists() {
+        std::fs::create_dir_all(&nginx).with_context(|| format!("failed to create {NGINX_DIR}"))?;
+    }
     let nxing_data = replace_vars(NGINX_CONF);
     std::fs::write(etc.join("nginx.conf"), nxing_data)
         .with_context(|| format!("failed to save nginx.conf to {NGINX_DIR}"))?;
 
-    if let Some(ref _url) = args.domain_renew_url {
-        todo!("cron to renew domain is not implemented yet");
+    if let Some(_url) = &args.domain_renew_url {
+        let domain_renew_cron = replace_vars(CRON_RENEW_DOMAIN);
+        let path = cron_dir.join("domain-renew");
+        std::fs::write(path, domain_renew_cron).context("failed to write domain-renew cron")?;
     }
 
     // acme
@@ -161,29 +173,39 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
         .run()?;
     }
     if !acme_bin.exists() {
-	    cmd!(sh, "sh {ACME_INSTALL}").run()?;
+        cmd!(sh, "sh {ACME_INSTALL}").run()?;
     }
 
     cmd!(sh, "{acme_bin} --upgrade --auto-upgrade").run()?;
 
     cmd!(sh, "{acme_bin} --set-default-ca --server zerossl").run()?;
+    if let Some(email) = &args.zerossl_email {
+	    cmd!(sh, "{acme_bin} --register-account -m {email}").run()?;
+    }
     cmd!(
         sh,
         "{acme_bin} --issue -d {domain} --keylength ec-256 --nginx"
     )
     .run()?;
 
-    let dir = home_path.join("xray-cert");
-    std::fs::create_dir_all(&dir).with_context(|| format!("failed to create {}", dir.display()))?;
+    let cert_dir = home_path.join("xray-cert");
+    if !cert_dir.exists() {
+        std::fs::create_dir_all(&cert_dir)
+            .with_context(|| format!("failed to create {}", cert_dir.display()))?;
+    }
 
-    let dir_str = dir.display().to_string();
-    cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {dir_str}/xray.crt --key-file {dir_str}/xray.key").run()?;
-    cmd!(sh, "chmod +r {dir_str}/xray.key").run()?;
+    let cert_dir_str = cert_dir.display().to_string();
+    cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir_str}/xray.crt --key-file {cert_dir_str}/xray.key").run()?;
+    cmd!(sh, "chmod +r {cert_dir_str}/xray.key").run()?;
 
-    std::fs::write(dir.join("renew.sh"), replace_vars(ACME_RENEW_SH))
+    std::fs::write(cert_dir.join("renew.sh"), replace_vars(ACME_RENEW_SH))
         .context("failed to save renew.sh")?;
 
-    todo!("add acme renew to cron")
+    let cert_renew_cron = replace_vars(CRON_RENEW_CERT);
+    let path = cron_dir.join("cert-renew");
+    std::fs::write(path, cert_renew_cron).context("failed to write cert-renew cron")?;
+
+    todo!()
 }
 
 fn download_url(version: &Version) -> String {

@@ -1,0 +1,2 @@
+# each month on first day at 1:00
+0 1 1 * * bash VAR_HOME/xray-cert/renew.sh

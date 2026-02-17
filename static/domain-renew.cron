@@ -1,0 +1,2 @@
+# every day on 00:00
+0 0 * * * curl "VAR_DOMAIN_RENEW_URL"
