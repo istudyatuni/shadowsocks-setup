@@ -88,8 +88,8 @@ fn download(sh: &Shell, version: &Version) -> Result<()> {
         bail!("hash not found in sha512sum output")
     };
 
-    let dgst =
-        std::fs::read_to_string(format!("{file}.dgst")).context("failed to read .dgst file")?;
+    let dgst = std::fs::read_to_string(sh.current_dir().join(format!("{file}.dgst")))
+        .context("failed to read .dgst file")?;
     if !dgst.contains(hash) {
         eprintln!(".dgst file:\n{dgst}");
         bail!("hash check failed, expected sha512 hash not found, hash: {hash}")
