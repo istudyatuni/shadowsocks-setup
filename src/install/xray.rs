@@ -51,11 +51,13 @@ pub fn install(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
 
     check_requirements(sh, INSTALL_EXE_REQUIRED)?;
     download(sh, &latest_version)?;
-    configure(sh, &args)?;
+    open_firewall_ports_and_enable(sh, &[22, 80, 443])?;
 
-    open_firewall_ports_and_enable(sh, &[22, 443])?;
+    let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
+    configure(sh, &args, &mut users_config)?;
+    print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
 
-    unimplemented!()
+    Ok(())
 }
 
 fn get_latest_xray_version() -> Result<Version> {
@@ -112,7 +114,7 @@ fn download(sh: &Shell, version: &Version) -> Result<()> {
     Ok(())
 }
 
-fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
+fn configure(sh: &Shell, args: &XrayInstallArgs, users_config: &mut UsersConfig) -> Result<()> {
     let home = std::env::var("HOME")
         .inspect_err(|e| eprintln!("failed to get HOME variable, using /root"))
         .unwrap_or_else(|_| "/root".to_string());
@@ -157,7 +159,6 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
         std::fs::write(etc.join("01_api.json"), config_data)
             .with_context(|| format!("failed to save 01_api.json to {XRAY_ETC_DIR}"))?;
     }
-    let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
     if !args.add_user_ids.is_empty() {
         users_config.reserve_users_space(args.add_user_ids.len());
         for id in &args.add_user_ids {
@@ -191,7 +192,7 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
 
     // cron config
 
-    if let Some(_url) = &args.domain_renew_url {
+    if args.domain_renew_url.is_some() {
         let domain_renew_cron = replace_vars(CRON_RENEW_DOMAIN);
         let path = cron_dir.join("domain-renew");
         std::fs::write(path, domain_renew_cron).context("failed to write domain-renew cron")?;
@@ -201,16 +202,16 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
 
     let home_path = PathBuf::from(home);
     let acme_bin = home_path.join(".acme.sh/acme.sh");
-    const ACME_INSTALL: &str = "/tmp/acme-install.sh";
-    if !PathBuf::from(ACME_INSTALL).exists() {
+    const ACME_INSTALLER: &str = "/tmp/acme-install.sh";
+    if !PathBuf::from(ACME_INSTALLER).exists() {
         cmd!(
             sh,
-            "wget --no-clobber -O {ACME_INSTALL} https://get.acme.sh"
+            "wget --no-clobber -O {ACME_INSTALLER} https://get.acme.sh"
         )
         .run()?;
     }
     if !acme_bin.exists() {
-        cmd!(sh, "sh {ACME_INSTALL}").run()?;
+        cmd!(sh, "sh {ACME_INSTALLER}").run()?;
     }
 
     cmd!(sh, "{acme_bin} --upgrade --auto-upgrade").run()?;
@@ -243,6 +244,17 @@ fn configure(sh: &Shell, args: &XrayInstallArgs) -> Result<()> {
     std::fs::write(path, cert_renew_cron).context("failed to write cert-renew cron")?;
 
     Ok(())
+}
+
+fn print_users_links(users: &[Client], domain: &str) {
+    eprintln!("users links:");
+    const NAME: &str = "xray";
+    for u in users {
+        println!(
+            "vless://{}@{domain}:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&security=tls&fp=chrome#{NAME}",
+            u.id
+        );
+    }
 }
 
 fn download_url(version: &Version) -> String {
