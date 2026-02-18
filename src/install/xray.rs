@@ -288,11 +288,27 @@ fn configure(
     Ok(())
 }
 
+#[cfg_attr(feature = "fake-cert", expect(unused))]
 fn configure_cert(
     sh: &Shell,
     args: &XrayInstallArgs,
     home_dir: &Path,
 ) -> Result<AcmeInstallResult> {
+    let cert_dir = home_dir.join("xray-cert");
+    if !cert_dir.exists() {
+        eprintln!("[install cert] creating directory {}", cert_dir.display());
+        std::fs::create_dir_all(&cert_dir)
+            .with_context(|| format!("failed to create {}", cert_dir.display()))?;
+    }
+
+    #[cfg(feature = "fake-cert")]
+    {
+        eprintln!("[install cert] creating fake cert");
+        std::fs::write(cert_dir.join("xray.crt"), "fake").context("failed to create xray.crt")?;
+        std::fs::write(cert_dir.join("xray.key"), "fake").context("failed to create xray.key")?;
+        return Ok(AcmeInstallResult { cert_dir });
+    }
+
     let domain = &args.domain;
     let acme_bin = home_dir.join(".acme.sh/acme.sh");
     const ACME_INSTALLER: &str = "/tmp/acme-install.sh";
@@ -321,13 +337,6 @@ fn configure_cert(
         "{acme_bin} --issue -d {domain} --keylength ec-256 --nginx"
     )
     .run()?;
-
-    let cert_dir = home_dir.join("xray-cert");
-    if !cert_dir.exists() {
-        eprintln!("creating directory {}", cert_dir.display());
-        std::fs::create_dir_all(&cert_dir)
-            .with_context(|| format!("failed to create {}", cert_dir.display()))?;
-    }
 
     let cert_dir_str = cert_dir.display().to_string();
     cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir_str}/xray.crt --key-file {cert_dir_str}/xray.key").run()?;

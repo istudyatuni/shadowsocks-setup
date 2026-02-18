@@ -17,7 +17,7 @@ extract-changelog file:
 	sed -n "/^## $(just get-build-version ./target/sssetup)/,/^## /p" CHANGELOG.md | grep -v '^## ' > "{{ file }}"
 
 [private]
-build-static:
+build-static *args:
 	@# CARGO_HOME and /tmp/.cargo is used to use local cargo download cache
 	docker run --rm \
 		-v "$(pwd)":/build \
@@ -27,7 +27,8 @@ build-static:
 		ghcr.io/rust-cross/rust-musl-cross:x86_64-musl \
 		cargo build --release \
 			--target={{ target }} \
-			--config build.rustc-wrapper="''"
+			--config build.rustc-wrapper="''" \
+			{{ args }}
 
 [private]
 pack-release:

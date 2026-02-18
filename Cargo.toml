@@ -7,6 +7,9 @@ edition = "2024"
 name = "sssetup"
 path = "src/main.rs"
 
+[features]
+fake-cert = []
+
 [profile.release]
 strip = true
 
