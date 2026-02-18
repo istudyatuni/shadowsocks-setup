@@ -14,8 +14,6 @@ use crate::{
     version::Version,
 };
 
-const SELF_BIN: &str = env!("CARGO_BIN_NAME");
-
 const DL_URL: &str = "https://github.com/XTLS/Xray-core/releases/download";
 const DL_FILE: &str = "Xray-linux-64.zip";
 
@@ -64,9 +62,10 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
     let state = serde_json::to_string(&state).context("failed to serialize install state")?;
     std::fs::write(STATE_FILE, state).context("failed to save install state")?;
 
+    let self_bin = std::env::current_exe().context("failed to get current exe")?;
     for step in XrayInstallStep::values() {
         let step = step.to_string();
-        cmd!(sh, "{SELF_BIN} xray install-step {step}").run()?;
+        cmd!(sh, "{self_bin} xray install-step {step}").run()?;
     }
 
     Ok(())

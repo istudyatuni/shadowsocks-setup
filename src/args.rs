@@ -125,6 +125,7 @@ impl XrayInstallStep {
         Self::InstallXray,
         Self::ConfigureFirewall,
         Self::ConfigureCert,
+        Self::ConfigureElse,
     ];
 
     pub fn need_root(self) -> bool {
