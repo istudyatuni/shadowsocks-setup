@@ -14,6 +14,8 @@ use crate::{
     version::Version,
 };
 
+const SELF_BIN: &str = env!("CARGO_BIN_NAME");
+
 const DL_URL: &str = "https://github.com/XTLS/Xray-core/releases/download";
 const DL_FILE: &str = "Xray-linux-64.zip";
 
@@ -45,17 +47,29 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
     "wget",
 ];
 
-pub fn install(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
-    const STATE_FILE: &str = "/tmp/xray-install-state.json";
+const STATE_FILE: &str = "/tmp/xray-install-state.json";
 
-    let state = if !PathBuf::from(STATE_FILE).exists() {
-        InstallState::default()
-    } else {
-        let state = std::fs::read_to_string(STATE_FILE).context("failed to read install state")?;
-        serde_json::from_str(&state).context("failed to deserialize install state")?
-    };
+pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
+    let mut state = InstallState::default();
+    state.args = args;
+    let state = serde_json::to_string(&state).context("failed to serialize install state")?;
+    std::fs::write(STATE_FILE, state).context("failed to save install state")?;
 
-    match args.next_step {
+    for step in XrayInstallStep::values() {
+        let step = step.to_string();
+        cmd!(sh, "{SELF_BIN} xray install-step {step}").run()?;
+    }
+
+    Ok(())
+}
+
+pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
+    let state = std::fs::read_to_string(STATE_FILE).context("failed to read install state")?;
+    let state: InstallState =
+        serde_json::from_str(&state).context("failed to deserialize install state")?;
+    let args = state.args;
+
+    match step {
         XrayInstallStep::DownloadXray => {
             let latest_version = get_latest_xray_version()?;
             eprintln!("[install] latest version: {}", latest_version.as_prefixed());
@@ -307,6 +321,7 @@ fn download_url(version: &Version) -> String {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct InstallState {
+    args: XrayInstallArgs,
     download_dir: Option<PathBuf>,
 }
 

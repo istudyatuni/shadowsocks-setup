@@ -40,7 +40,7 @@ fn main() -> Result<()> {
             ShadowsocksArgs::Uninstall => install::shadowsocks::uninstall(&sh)?,
         },
         Args::Xray { cmd } => match cmd {
-            XrayArgs::Install(args) => install::xray::install(&sh, args)?,
+            XrayArgs::Install(args) => install::xray::run_install_manager(&sh, args)?,
         },
     }
 

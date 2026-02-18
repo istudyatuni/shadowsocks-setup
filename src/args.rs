@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use clap::{Parser, ValueEnum};
+use serde::{Deserialize, Serialize};
 
 use crate::{cipher::Cipher, version::Version};
 
@@ -60,9 +61,13 @@ pub struct ShadowsocksUpdateArgs {
 pub enum XrayArgs {
     /// Install xray
     Install(XrayInstallArgs),
+
+    /// Do not use directly. Used to separate root/non-root commands
+    #[clap(hide = true)]
+    InstallStep { step: XrayInstallStep },
 }
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Default, Serialize, Deserialize, Parser)]
 pub struct XrayInstallArgs {
     /// Enable xray api
     #[arg(long)]
@@ -92,10 +97,6 @@ pub struct XrayInstallArgs {
     /// UUIDs of new users to add to config. Can be repeated or separated with ","
     #[arg(long = "add-user-id", value_delimiter = ',')]
     pub add_user_ids: Vec<String>,
-
-    /// Do not use directly. Used to separate root/non-root commands
-    #[arg(long, hide = true, default_value_t = XrayInstallStep::DownloadXray)]
-    pub next_step: XrayInstallStep,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -108,7 +109,8 @@ impl Args {
     pub fn need_root(&self) -> bool {
         match self {
             Self::Xray { cmd } => match cmd {
-                XrayArgs::Install(args) => args.next_step.need_root(),
+                XrayArgs::InstallStep { step } => step.need_root(),
+                _ => false,
             },
             _ => false,
         }
@@ -116,11 +118,17 @@ impl Args {
 }
 
 impl XrayInstallStep {
+    const VALUES: &[Self] = &[Self::DownloadXray, Self::InstallXray];
+
     pub fn need_root(self) -> bool {
         match self {
             Self::DownloadXray => false,
             Self::InstallXray => true,
         }
+    }
+    pub fn values() -> &'static [Self] {
+        assert!(Self::VALUES.len() == Self::value_variants().len());
+        Self::VALUES
     }
 }
 
