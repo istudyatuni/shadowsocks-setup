@@ -50,8 +50,16 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 const STATE_FILE: &str = "/tmp/xray-install-state.json";
 
 pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
-    let mut state = InstallState::default();
-    state.args = args;
+    let home = std::env::var("HOME")
+        .inspect_err(|e| eprintln!("failed to get HOME variable, using /root"))
+        .unwrap_or_else(|_| "/root".to_string());
+
+    let mut state = InstallState {
+        args,
+        home_dir: PathBuf::from(&home),
+        home_dir_str: home,
+        download_dir: None,
+    };
     let state = serde_json::to_string(&state).context("failed to serialize install state")?;
     std::fs::write(STATE_FILE, state).context("failed to save install state")?;
 
@@ -86,13 +94,9 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
     }
     open_firewall_ports_and_enable(sh, &[22, 80, 443])?;
 
-    let home = std::env::var("HOME")
-        .inspect_err(|e| eprintln!("failed to get HOME variable, using /root"))
-        .unwrap_or_else(|_| "/root".to_string());
-
-    let acme = configure_cert(sh, &args, &home)?;
+    let acme = configure_cert(sh, &args, &state.home_dir)?;
     let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
-    configure(sh, &args, &mut users_config, acme, &home)?;
+    configure(sh, &args, &mut users_config, acme, &state.home_dir_str)?;
     print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
 
     todo!("restart");
@@ -261,10 +265,9 @@ fn configure(
     Ok(())
 }
 
-fn configure_cert(sh: &Shell, args: &XrayInstallArgs, home: &str) -> Result<AcmeInstallResult> {
+fn configure_cert(sh: &Shell, args: &XrayInstallArgs, home_dir: &Path) -> Result<AcmeInstallResult> {
     let domain = &args.domain;
-    let home_path = PathBuf::from(home);
-    let acme_bin = home_path.join(".acme.sh/acme.sh");
+    let acme_bin = home_dir.join(".acme.sh/acme.sh");
     const ACME_INSTALLER: &str = "/tmp/acme-install.sh";
     if !PathBuf::from(ACME_INSTALLER).exists() {
         cmd!(
@@ -288,7 +291,7 @@ fn configure_cert(sh: &Shell, args: &XrayInstallArgs, home: &str) -> Result<Acme
     )
     .run()?;
 
-    let cert_dir = home_path.join("xray-cert");
+    let cert_dir = home_dir.join("xray-cert");
     if !cert_dir.exists() {
         std::fs::create_dir_all(&cert_dir)
             .with_context(|| format!("failed to create {}", cert_dir.display()))?;
@@ -319,9 +322,11 @@ fn download_url(version: &Version) -> String {
     DL_URL.to_owned() + "/" + version.as_prefixed().as_str() + "/" + DL_FILE
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct InstallState {
     args: XrayInstallArgs,
+    home_dir: PathBuf,
+    home_dir_str: String,
     download_dir: Option<PathBuf>,
 }
 
