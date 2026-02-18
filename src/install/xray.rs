@@ -59,7 +59,8 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
         download_dir: None,
         cert_dir: None,
     };
-    let state = serde_json::to_string(&state).context("failed to serialize install state")?;
+    let state =
+        serde_json::to_string_pretty(&state).context("failed to serialize install state")?;
     std::fs::write(STATE_FILE, state).context("failed to save install state")?;
 
     let self_bin = std::env::current_exe().context("failed to get current exe")?;
@@ -114,7 +115,8 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
     }
 
     if should_save_state {
-        let state = serde_json::to_string(&state).context("failed to serialize install state")?;
+        let state =
+            serde_json::to_string_pretty(&state).context("failed to serialize install state")?;
         std::fs::write(STATE_FILE, state).context("failed to save install state")?;
     }
 
@@ -132,6 +134,7 @@ fn get_latest_xray_version() -> Result<Version> {
 fn download(sh: &Shell, version: &Version, dl_dir: &Path) -> Result<()> {
     let url = download_url(version);
     if !dl_dir.exists() {
+        eprintln!("creating directory {}", dl_dir.display());
         std::fs::create_dir_all(dl_dir).context("failed to create version dir for artifacts")?;
     }
 
@@ -169,6 +172,7 @@ fn install_xray(sh: &Shell, dl_dir: &Path) -> Result<()> {
         .context("failed to move xray to bin dir")?;
 
     let dir = "/usr/local/share/xray";
+    eprintln!("creating directory {dir}");
     std::fs::create_dir_all(dir).with_context(|| format!("failed to create {dir}"))?;
     for file in ["geoip.dat", "geosite.dat"] {
         std::fs::rename(
@@ -218,6 +222,7 @@ fn configure(
     // xray configs
 
     let etc = PathBuf::from(XRAY_ETC_DIR);
+    eprintln!("creating directory {XRAY_ETC_DIR}");
     std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {XRAY_ETC_DIR}"))?;
 
     let config_data = replace_vars(XRAY_CONF);
@@ -246,6 +251,7 @@ fn configure(
     // systemd config
 
     let systemd = PathBuf::from(SYSTEMD_DIR);
+    eprintln!("creating directory {SYSTEMD_DIR}");
     std::fs::create_dir_all(&systemd).with_context(|| format!("failed to create {SYSTEMD_DIR}"))?;
     let service_data = replace_vars(XRAY_SERVICE);
     std::fs::write(etc.join("xray.service"), service_data)
@@ -255,6 +261,7 @@ fn configure(
 
     let nginx = PathBuf::from(NGINX_DIR);
     if !nginx.exists() {
+        eprintln!("creating directory {NGINX_DIR}");
         std::fs::create_dir_all(&nginx).with_context(|| format!("failed to create {NGINX_DIR}"))?;
     }
     let nxing_data = replace_vars(NGINX_CONF);
@@ -304,7 +311,11 @@ fn configure_cert(
 
     cmd!(sh, "{acme_bin} --set-default-ca --server zerossl").run()?;
     let email = &args.zerossl_email;
-    cmd!(sh, "{acme_bin} --register-account -m {email}").run()?;
+    cmd!(
+        sh,
+        "{acme_bin} --register-account -m {email} --debug 2 --output-insecure"
+    )
+    .run()?;
     cmd!(
         sh,
         "{acme_bin} --issue -d {domain} --keylength ec-256 --nginx"
@@ -313,6 +324,7 @@ fn configure_cert(
 
     let cert_dir = home_dir.join("xray-cert");
     if !cert_dir.exists() {
+        eprintln!("creating directory {}", cert_dir.display());
         std::fs::create_dir_all(&cert_dir)
             .with_context(|| format!("failed to create {}", cert_dir.display()))?;
     }
