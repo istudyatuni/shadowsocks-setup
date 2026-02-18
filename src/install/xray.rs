@@ -36,6 +36,7 @@ const CRON_RENEW_DOMAIN: &str = include_str!("../../static/domain-renew.cron");
 
 const INSTALL_EXE_REQUIRED: &[&str] = &[
     "chmod",
+    "nginx",
     "sh",
     "sha512sum",
     "systemctl",
@@ -109,6 +110,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
             };
             let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
             configure(args, &mut users_config, cert_dir, &state.home_dir_str)?;
+            start_services(sh)?;
             print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
         }
     }
@@ -344,6 +346,12 @@ fn configure(
     let path = cron_dir.join("cert-renew");
     std::fs::write(path, cert_renew_cron).context("failed to write cert-renew cron")?;
 
+    Ok(())
+}
+
+fn start_services(sh: &Shell) -> Result<()> {
+    cmd!(sh, "systemctl enable --now xray").run()?;
+    cmd!(sh, "systemctl enable --now nginx").run()?;
     Ok(())
 }
 
