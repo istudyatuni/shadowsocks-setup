@@ -1,10 +1,13 @@
-use anyhow::{Context, Result, bail};
+use std::path::Path;
+
+use anyhow::{Context, Result, anyhow, bail};
 use xshell::{Shell, cmd};
 
 pub mod input;
 mod network;
 pub mod shadowsocks;
 pub mod xray;
+pub mod xray_config;
 
 const ARTIFACTS_DIR: &str = "artifacts";
 
@@ -38,4 +41,10 @@ pub fn create_and_cd_to_artifacts_dir(sh: &Shell) -> Result<()> {
     sh.change_dir(ARTIFACTS_DIR);
     std::env::set_current_dir(ARTIFACTS_DIR).context("failed to change current dir")?;
     Ok(())
+}
+
+pub fn path_to_str(p: &Path) -> Result<String> {
+    p.to_str()
+        .map(ToString::to_string)
+        .ok_or_else(|| anyhow!("path {} is not valid utf-8", p.display()))
 }
