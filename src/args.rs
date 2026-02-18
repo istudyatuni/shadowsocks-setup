@@ -111,9 +111,10 @@ pub enum XrayInstallStep {
 impl Args {
     pub fn need_root(&self) -> bool {
         match self {
-            Self::Xray {
-                cmd: XrayArgs::InstallStep { step },
-            } => step.need_root(),
+            Self::Xray { cmd } => match cmd {
+                XrayArgs::InstallStep { step } => step.need_root(),
+                XrayArgs::Install(_) => false,
+            },
             _ => false,
         }
     }
