@@ -29,6 +29,7 @@ const VLESS_INBOUND_TAG: &str = "vless";
 const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
 const NGINX_CONF: &str = include_str!("../../static/nginx.conf");
 const XRAY_SERVICE: &str = include_str!("../../static/xray.service");
+const XRAY_API_CONF: &str = include_str!("../../static/xray_01_api.json");
 
 const CRON_RENEW_CERT: &str = include_str!("../../static/cert-renew.cron");
 const CRON_RENEW_DOMAIN: &str = include_str!("../../static/domain-renew.cron");
@@ -109,7 +110,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
             let Some(cert_dir) = &state.cert_dir else {
                 bail!("invalid state: no download_dir")
             };
-            let mut users_config = XrayConfig::new(args.api, args.api_port, cert_dir)?;
+            let mut users_config = XrayConfig::new(cert_dir)?;
             configure(args, &mut users_config, cert_dir, &state.home_dir_str)?;
             start_services(sh)?;
             print_users_links(users_config.users(), &args.domain);
@@ -290,7 +291,13 @@ fn configure(
     let etc = PathBuf::from(XRAY_ETC_DIR);
     eprintln!("creating directory {XRAY_ETC_DIR}");
     std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {XRAY_ETC_DIR}"))?;
-
+    if args.api {
+        let config_data = replace_vars(XRAY_API_CONF);
+        // writing 01_api before 05_main because inbound[0] from 01_api should
+        // be before other rules in 05_main after loading
+        std::fs::write(etc.join("01_api.json"), config_data)
+            .with_context(|| format!("failed to save 01_api.json to {XRAY_ETC_DIR}"))?;
+    }
     if !args.add_user_ids.is_empty() {
         users_config.reserve_users_space(args.add_user_ids.len());
         for id in &args.add_user_ids {
@@ -301,8 +308,8 @@ fn configure(
     }
     let config_data =
         serde_json::to_string_pretty(&users_config).context("failed to serialize xray config")?;
-    std::fs::write(etc.join("xray.json"), config_data)
-        .with_context(|| format!("failed to save xray.json to {XRAY_ETC_DIR}"))?;
+    std::fs::write(etc.join("05_main.json"), config_data)
+        .with_context(|| format!("failed to save 05_main.json to {XRAY_ETC_DIR}"))?;
     drop(etc);
 
     // systemd config
@@ -379,8 +386,6 @@ struct InstallState {
 
 #[derive(Debug, Serialize)]
 struct XrayConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    api: Option<serde_json::Value>,
     dns: serde_json::Value,
     routing: RoutingConfig,
     inbounds: Vec<InboundConfig>,
@@ -422,17 +427,15 @@ struct Client {
 }
 
 impl XrayConfig {
-    fn new(api: bool, api_port: u32, cert_dir: &Path) -> Result<Self> {
-        let mut routing_rules = Vec::with_capacity(4);
-        if api {
-            routing_rules.push(json!({
+    fn new(cert_dir: &Path) -> Result<Self> {
+        let routing_rules = vec![
+            // xray ignores this rule if api is not specified
+            json!({
               "inboundTag": [
                 "api"
               ],
               "outboundTag": "api"
-            }));
-        }
-        routing_rules.extend_from_slice(&[
+            }),
             json!({
               "ip": [
                 "geoip:private"
@@ -451,21 +454,7 @@ impl XrayConfig {
               ],
               "outboundTag": "block"
             }),
-        ]);
-        let api_inbound_rule = InboundConfig {
-            tag: "api".to_string(),
-            settings: InboundConfigSettings {
-                clients: vec![],
-                rest: json!({
-                    "address": "127.0.0.1"
-                }),
-            },
-            rest: json!({
-                "listen": "127.0.0.1",
-                "port": api_port,
-                "protocol": "dokodemo-door"
-            }),
-        };
+        ];
         let vless_inbound_rule = InboundConfig {
             tag: "vless".to_string(),
             settings: InboundConfigSettings {
@@ -495,13 +484,6 @@ impl XrayConfig {
         };
 
         Ok(Self {
-            api: api.then_some(json!({
-                "tag": "api",
-                "services": [
-                    "HandlerService",
-                    "ReflectionService"
-                ]
-            })),
             dns: json!({
                 "servers": [
                     "https+local://1.1.1.1/dns-query",
@@ -512,15 +494,8 @@ impl XrayConfig {
                 domain_strategy: "IPIfNonMatch".to_string(),
                 rules: routing_rules,
             },
-            inbounds: {
-                let mut res = Vec::with_capacity(2);
-                if api {
-                    res.push(api_inbound_rule);
-                }
-                res.push(vless_inbound_rule);
-                res
-            },
-            inbound_with_clients_index: if api { 1 } else { 0 },
+            inbounds: vec![vless_inbound_rule],
+            inbound_with_clients_index: 0,
             outbounds: json!([
                 {
                     "tag": "direct",
