@@ -29,15 +29,6 @@ const XRAY_BIN: &str = "/usr/local/bin/xray";
 
 const VLESS_INBOUND_TAG: &str = "vless";
 
-const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
-const NGINX_CONF: &str = include_str!("../../static/nginx.conf");
-const XRAY_SERVICE: &str = include_str!("../../static/xray.service");
-const XRAY_API_CONF: &str = include_str!("../../static/xray_01_api.json");
-const XRAY_BASE_CONF: &str = include_str!("../../static/xray_03_base.json");
-
-const CRON_RENEW_CERT: &str = include_str!("../../static/cert-renew.cron");
-const CRON_RENEW_DOMAIN: &str = include_str!("../../static/domain-renew.cron");
-
 const INSTALL_EXE_REQUIRED: &[&str] = &[
     "chmod",
     "nginx",
@@ -50,6 +41,52 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 ];
 
 const STATE_FILE: &str = "/tmp/xray-install-state.json";
+
+mod vars {
+    macro_rules! vars {
+        ($($var:ident),* $(,)?) => {
+            $(
+                pub const $var: &str = concat!("VAR_", stringify!($var));
+            )*
+
+            #[cfg(test)]
+            pub const ALL_VARS: &[&str] = &[ $($var),* ];
+        };
+    }
+
+    vars!(
+        HOME,
+        DOMAIN,
+        DOMAIN_RENEW_URL,
+        VLESS_INBOUND_TAG,
+        XRAY_BIN,
+        XRAY_API_PORT,
+        XRAY_ETC_DIR,
+    );
+}
+
+mod configs {
+    macro_rules! configs {
+        ($($name:ident = $path:literal),* $(,)?) => {
+            $(
+                pub const $name: &str = include_str!($path);
+            )*
+
+            #[cfg(test)]
+            pub const ALL_CONFIGS: &[&str] = &[ $($name),* ];
+        };
+    }
+
+    configs!(
+        ACME_RENEW_SH = "../../static/acme-renew.sh",
+        NGINX_CONF = "../../static/nginx.conf",
+        XRAY_SERVICE = "../../static/xray.service",
+        XRAY_API_CONF = "../../static/xray_01_api.json",
+        XRAY_BASE_CONF = "../../static/xray_03_base.json",
+        CRON_RENEW_CERT = "../../static/cert-renew.cron",
+        CRON_RENEW_DOMAIN = "../../static/domain-renew.cron",
+    );
+}
 
 pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
     create_and_cd_to_artifacts_dir(sh)?;
@@ -260,25 +297,24 @@ fn configure(
 
     let domain = &args.domain;
     let vars = [
-        ("VAR_HOME", home.to_string()),
-        ("VAR_DOMAIN", domain.clone()),
+        (vars::HOME, home.to_string()),
+        (vars::DOMAIN, domain.clone()),
         (
-            "VAR_DOMAIN_RENEW_URL",
+            vars::DOMAIN_RENEW_URL,
             args.domain_renew_url
                 .clone()
                 .unwrap_or_else(|| "NOT_SET".to_string()),
         ),
-        ("VAR_VLESS_INBOUND_TAG", VLESS_INBOUND_TAG.to_string()),
-        ("VAR_XRAY_BIN", XRAY_BIN.to_string()),
-        ("VAR_XRAY_API_PORT", args.api_port.to_string()),
-        ("VAR_XRAY_ETC_DIR", XRAY_ETC_DIR.to_string()),
+        (vars::VLESS_INBOUND_TAG, VLESS_INBOUND_TAG.to_string()),
+        (vars::XRAY_BIN, XRAY_BIN.to_string()),
+        (vars::XRAY_API_PORT, args.api_port.to_string()),
+        (vars::XRAY_ETC_DIR, XRAY_ETC_DIR.to_string()),
     ];
     let replace_vars = |text: &str| {
         let mut res = text.to_string();
         for (name, value) in &vars {
             res = res.replace(name, value);
         }
-        // todo: check no VAR_ remains
         res
     };
 
@@ -298,9 +334,9 @@ fn configure(
     if args.api {
         // writing 01_api before 05_main because inbound[0] from 01_api should
         // be before other rules in 05_main after loading
-        save_config(&etc, "01_api.json", XRAY_API_CONF)?;
+        save_config(&etc, "01_api.json", configs::XRAY_API_CONF)?;
     }
-    save_config(&etc, "03_base.json", XRAY_BASE_CONF)?;
+    save_config(&etc, "03_base.json", configs::XRAY_BASE_CONF)?;
     if !args.add_user_ids.is_empty() {
         users_config.reserve_users_space(args.add_user_ids.len());
         for id in &args.add_user_ids {
@@ -318,24 +354,24 @@ fn configure(
 
     let systemd = PathBuf::from(SYSTEMD_DIR);
     create_dir(&systemd)?;
-    save_config(&systemd, "xray.service", XRAY_SERVICE)?;
+    save_config(&systemd, "xray.service", configs::XRAY_SERVICE)?;
 
     // nginx config
 
     let nginx = PathBuf::from(NGINX_DIR);
     create_dir(&nginx)?;
-    save_config(&nginx, "nginx.conf", NGINX_CONF)?;
+    save_config(&nginx, "nginx.conf", configs::NGINX_CONF)?;
 
     // cron config
 
     if args.domain_renew_url.is_some() {
-        save_config(&cron_dir, "domain-renew", CRON_RENEW_DOMAIN)?;
+        save_config(&cron_dir, "domain-renew", configs::CRON_RENEW_DOMAIN)?;
     }
 
     // acme cron
 
-    save_config(cert_dir, "renew.sh", ACME_RENEW_SH)?;
-    save_config(&cron_dir, "cert-renew", CRON_RENEW_CERT)?;
+    save_config(cert_dir, "renew.sh", configs::ACME_RENEW_SH)?;
+    save_config(&cron_dir, "cert-renew", configs::CRON_RENEW_CERT)?;
 
     Ok(())
 }
@@ -372,4 +408,25 @@ struct InstallState {
 
 struct AcmeInstallResult {
     cert_dir: PathBuf,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_all_vars_replaced() {
+        fn replace_vars(text: &str) -> String {
+            let mut res = text.to_string();
+            for name in vars::ALL_VARS {
+                res = res.replace(name, "");
+            }
+            res
+        }
+        let not_all_replaced = configs::ALL_CONFIGS
+            .iter()
+            .map(|s| replace_vars(s))
+            .any(|s| s.contains("VAR_"));
+        assert!(!not_all_replaced);
+    }
 }
