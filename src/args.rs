@@ -115,7 +115,7 @@ impl Args {
                 XrayArgs::InstallStep { step } => step.need_root(),
                 XrayArgs::Install(_) => false,
             },
-            _ => false,
+            Self::Shadowsocks { .. } => true,
         }
     }
 }
