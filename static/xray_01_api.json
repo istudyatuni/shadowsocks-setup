@@ -1,21 +1,4 @@
 {
-  "api": {
-    "tag": "api",
-    "services": [
-      "HandlerService",
-      "ReflectionService"
-    ]
-  },
-  "routing": {
-    "rules": [
-      {
-        "inboundTag": [
-          "api"
-        ],
-        "outboundTag": "api"
-      }
-    ]
-  },
   "inbounds": [
     {
       "listen": "127.0.0.1",

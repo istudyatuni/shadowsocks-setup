@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 use xshell::{Shell, cmd};
 
@@ -108,7 +109,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
             let Some(cert_dir) = &state.cert_dir else {
                 bail!("invalid state: no download_dir")
             };
-            let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
+            let mut users_config = XrayConfig::new(args.api);
             configure(args, &mut users_config, cert_dir, &state.home_dir_str)?;
             start_services(sh)?;
             print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
@@ -246,7 +247,7 @@ fn configure_cert(
 
 fn configure(
     args: &XrayInstallArgs,
-    users_config: &mut UsersConfig,
+    users_config: &mut XrayConfig,
     cert_dir: &Path,
     home: &str,
 ) -> Result<()> {
@@ -380,8 +381,18 @@ struct InstallState {
 }
 
 #[derive(Debug, Serialize)]
-struct UsersConfig {
+struct XrayConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    api: Option<serde_json::Value>,
+    routing: RoutingConfig,
     inbounds: Vec<InboundConfig>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RoutingConfig {
+    domain_strategy: String,
+    rules: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -401,11 +412,52 @@ struct Client {
     flow: String,
 }
 
-impl UsersConfig {
-    fn empty(inbound_tag: &str) -> Self {
+impl XrayConfig {
+    fn new(api: bool) -> Self {
+        let mut routing_rules = Vec::with_capacity(4);
+        if api {
+            routing_rules.push(json!({
+              "inboundTag": [
+                "api"
+              ],
+              "outboundTag": "api"
+            }));
+        }
+        routing_rules.extend_from_slice(&[
+            json!({
+              "ip": [
+                "geoip:private"
+              ],
+              "outboundTag": "block"
+            }),
+            json!({
+              "ip": [
+                "geoip:cn"
+              ],
+              "outboundTag": "block"
+            }),
+            json!({
+              "domain": [
+                "geosite:category-ads-all"
+              ],
+              "outboundTag": "block"
+            }),
+        ]);
+
         Self {
+            api: api.then_some(json!({
+              "tag": "api",
+              "services": [
+                "HandlerService",
+                "ReflectionService"
+              ]
+            })),
+            routing: RoutingConfig {
+                domain_strategy: "IPIfNonMatch".to_string(),
+                rules: routing_rules,
+            },
             inbounds: vec![InboundConfig {
-                tag: inbound_tag.to_string(),
+                tag: "vless".to_string(),
                 settings: InboundConfigSettings { clients: vec![] },
             }],
         }
