@@ -135,11 +135,8 @@ fn get_latest_xray_version() -> Result<Version> {
 }
 
 fn download(sh: &Shell, version: &Version, dl_dir: &Path) -> Result<()> {
+    create_dir(dl_dir)?;
     let url = download_url(version);
-    if !dl_dir.exists() {
-        eprintln!("creating directory {}", dl_dir.display());
-        std::fs::create_dir_all(dl_dir).context("failed to create version dir for artifacts")?;
-    }
 
     let _new_dir = sh.push_dir(dl_dir);
 
@@ -196,12 +193,7 @@ fn configure_cert(
     home_dir: &Path,
 ) -> Result<AcmeInstallResult> {
     let cert_dir = home_dir.join("xray-cert");
-    let cert_dir_str = path_to_str(&cert_dir)?;
-    if !cert_dir.exists() {
-        eprintln!("[install cert] creating directory {}", cert_dir.display());
-        std::fs::create_dir_all(&cert_dir)
-            .with_context(|| format!("failed to create {}", cert_dir.display()))?;
-    }
+    create_dir(&cert_dir)?;
 
     #[cfg(feature = "fake-cert")]
     {
@@ -248,8 +240,8 @@ fn configure_cert(
     )
     .run()?;
 
-    cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir_str}/xray.crt --key-file {cert_dir_str}/xray.key").run()?;
-    cmd!(sh, "chmod +r {cert_dir_str}/xray.key").run()?;
+    cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir}/xray.crt --key-file {cert_dir}/xray.key").run()?;
+    cmd!(sh, "chmod +r {cert_dir}/xray.key").run()?;
 
     Ok(AcmeInstallResult { cert_dir })
 }
@@ -286,17 +278,23 @@ fn configure(
         res
     };
 
+    let save_config = |dir: &Path, file: &str, text: &str| -> Result<()> {
+        let data = replace_vars(text);
+        let path = dir.join(file);
+        eprintln!("writing {}", path.display());
+        std::fs::write(path, data)
+            .with_context(|| format!("failed to save {file} to {}", dir.display()))?;
+        Ok(())
+    };
+
     // xray configs
 
     let etc = PathBuf::from(XRAY_ETC_DIR);
-    eprintln!("creating directory {XRAY_ETC_DIR}");
-    std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {XRAY_ETC_DIR}"))?;
+    create_dir(&etc)?;
     if args.api {
-        let config_data = replace_vars(XRAY_API_CONF);
         // writing 01_api before 05_main because inbound[0] from 01_api should
         // be before other rules in 05_main after loading
-        std::fs::write(etc.join("01_api.json"), config_data)
-            .with_context(|| format!("failed to save 01_api.json to {XRAY_ETC_DIR}"))?;
+        save_config(&etc, "01_api.json", XRAY_API_CONF)?;
     }
     if !args.add_user_ids.is_empty() {
         users_config.reserve_users_space(args.add_user_ids.len());
@@ -308,48 +306,31 @@ fn configure(
     }
     let config_data =
         serde_json::to_string_pretty(&users_config).context("failed to serialize xray config")?;
-    std::fs::write(etc.join("05_main.json"), config_data)
-        .with_context(|| format!("failed to save 05_main.json to {XRAY_ETC_DIR}"))?;
+    save_config(&etc, "05_main.json", &config_data)?;
     drop(etc);
 
     // systemd config
 
     let systemd = PathBuf::from(SYSTEMD_DIR);
-    eprintln!("creating directory {SYSTEMD_DIR}");
-    std::fs::create_dir_all(&systemd).with_context(|| format!("failed to create {SYSTEMD_DIR}"))?;
-    let service_data = replace_vars(XRAY_SERVICE);
-    let service_file = systemd.join("xray.service");
-    eprintln!("writing {}", service_file.display());
-    std::fs::write(service_file, service_data)
-        .with_context(|| format!("failed to save xray.service to {SYSTEMD_DIR}"))?;
+    create_dir(&systemd)?;
+    save_config(&systemd, "xray.service", XRAY_SERVICE)?;
 
     // nginx config
 
     let nginx = PathBuf::from(NGINX_DIR);
-    if !nginx.exists() {
-        eprintln!("creating directory {NGINX_DIR}");
-        std::fs::create_dir_all(&nginx).with_context(|| format!("failed to create {NGINX_DIR}"))?;
-    }
-    let nxing_data = replace_vars(NGINX_CONF);
-    std::fs::write(nginx.join("nginx.conf"), nxing_data)
-        .with_context(|| format!("failed to save nginx.conf to {NGINX_DIR}"))?;
+    create_dir(&nginx)?;
+    save_config(&nginx, "nginx.conf", NGINX_CONF)?;
 
     // cron config
 
     if args.domain_renew_url.is_some() {
-        let domain_renew_cron = replace_vars(CRON_RENEW_DOMAIN);
-        let path = cron_dir.join("domain-renew");
-        std::fs::write(path, domain_renew_cron).context("failed to write domain-renew cron")?;
+        save_config(&cron_dir, "domain-renew", CRON_RENEW_DOMAIN)?;
     }
 
     // acme cron
 
-    std::fs::write(cert_dir.join("renew.sh"), replace_vars(ACME_RENEW_SH))
-        .context("failed to save renew.sh")?;
-
-    let cert_renew_cron = replace_vars(CRON_RENEW_CERT);
-    let path = cron_dir.join("cert-renew");
-    std::fs::write(path, cert_renew_cron).context("failed to write cert-renew cron")?;
+    save_config(cert_dir, "renew.sh", ACME_RENEW_SH)?;
+    save_config(&cron_dir, "cert-renew", CRON_RENEW_CERT)?;
 
     Ok(())
 }
@@ -373,6 +354,15 @@ fn print_users_links(users: &[Client], domain: &str) {
 
 fn download_url(version: &Version) -> String {
     DL_URL.to_owned() + "/" + version.as_prefixed().as_str() + "/" + DL_FILE
+}
+
+fn create_dir(path: &Path) -> Result<()> {
+    if !path.exists() {
+        eprintln!("creating directory {}", path.display());
+        std::fs::create_dir_all(path)
+            .with_context(|| format!("failed to create {}", path.display()))?;
+    }
+    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
