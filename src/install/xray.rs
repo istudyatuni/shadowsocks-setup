@@ -1,5 +1,3 @@
-// #![expect(unused)]
-
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
@@ -28,7 +26,6 @@ const VLESS_INBOUND_TAG: &str = "vless";
 
 const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
 const NGINX_CONF: &str = include_str!("../../static/nginx.conf");
-const XRAY_CONF: &str = include_str!("../../static/xray_05_main.json");
 const XRAY_SERVICE: &str = include_str!("../../static/xray.service");
 
 const CRON_RENEW_CERT: &str = include_str!("../../static/cert-renew.cron");
@@ -282,10 +279,6 @@ fn configure(
     eprintln!("creating directory {XRAY_ETC_DIR}");
     std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {XRAY_ETC_DIR}"))?;
 
-    let config_data = replace_vars(XRAY_CONF);
-    let main_file = etc.join("05_main.json");
-    std::fs::write(&main_file, config_data)
-        .with_context(|| format!("failed to save 05_main.json to {}", main_file.display()))?;
     if !args.add_user_ids.is_empty() {
         users_config.reserve_users_space(args.add_user_ids.len());
         for id in &args.add_user_ids {
@@ -295,9 +288,9 @@ fn configure(
         users_config.add_users(args.add_users_count);
     }
     let config_data =
-        serde_json::to_string_pretty(&users_config).context("failed to serialize users config")?;
-    std::fs::write(etc.join("08_users.json"), config_data)
-        .with_context(|| format!("failed to save 08_users.json to {XRAY_ETC_DIR}"))?;
+        serde_json::to_string_pretty(&users_config).context("failed to serialize xray config")?;
+    std::fs::write(etc.join("xray.json"), config_data)
+        .with_context(|| format!("failed to save xray.json to {XRAY_ETC_DIR}"))?;
     drop(etc);
 
     // systemd config
