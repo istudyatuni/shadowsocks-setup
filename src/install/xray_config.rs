@@ -9,18 +9,10 @@ use crate::install::path_to_str;
 
 #[derive(Debug, Serialize)]
 pub struct XrayConfig {
-    routing: RoutingConfig,
     inbounds: Vec<InboundConfig>,
 
     #[serde(skip_serializing)]
     inbound_with_clients_index: usize,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct RoutingConfig {
-    domain_strategy: String,
-    rules: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize)]
@@ -49,33 +41,6 @@ pub struct Client {
 
 impl XrayConfig {
     pub fn new(cert_dir: &Path) -> Result<Self> {
-        let routing_rules = vec![
-            // xray ignores this rule if api is not specified
-            json!({
-              "inboundTag": [
-                "api"
-              ],
-              "outboundTag": "api"
-            }),
-            json!({
-              "ip": [
-                "geoip:private"
-              ],
-              "outboundTag": "block"
-            }),
-            json!({
-              "ip": [
-                "geoip:cn"
-              ],
-              "outboundTag": "block"
-            }),
-            json!({
-              "domain": [
-                "geosite:category-ads-all"
-              ],
-              "outboundTag": "block"
-            }),
-        ];
         let vless_inbound_rule = InboundConfig {
             tag: "vless".to_string(),
             settings: InboundConfigSettings {
@@ -105,10 +70,6 @@ impl XrayConfig {
         };
 
         Ok(Self {
-            routing: RoutingConfig {
-                domain_strategy: "IPIfNonMatch".to_string(),
-                rules: routing_rules,
-            },
             inbounds: vec![vless_inbound_rule],
             inbound_with_clients_index: 0,
         })
