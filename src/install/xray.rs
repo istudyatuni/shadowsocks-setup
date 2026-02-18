@@ -35,7 +35,6 @@ const CRON_RENEW_CERT: &str = include_str!("../../static/cert-renew.cron");
 const CRON_RENEW_DOMAIN: &str = include_str!("../../static/domain-renew.cron");
 
 const INSTALL_EXE_REQUIRED: &[&str] = &[
-    "cp",
     "chmod",
     "sh",
     "sha512sum",
@@ -247,6 +246,7 @@ fn configure(
         serde_json::to_string_pretty(&users_config).context("failed to serialize users config")?;
     std::fs::write(etc.join("08_users.json"), config_data)
         .with_context(|| format!("failed to save 08_users.json to {XRAY_ETC_DIR}"))?;
+    drop(etc);
 
     // systemd config
 
@@ -254,7 +254,9 @@ fn configure(
     eprintln!("creating directory {SYSTEMD_DIR}");
     std::fs::create_dir_all(&systemd).with_context(|| format!("failed to create {SYSTEMD_DIR}"))?;
     let service_data = replace_vars(XRAY_SERVICE);
-    std::fs::write(etc.join("xray.service"), service_data)
+    let service_file = systemd.join("xray.service");
+    eprintln!("writing {}", service_file.display());
+    std::fs::write(service_file, service_data)
         .with_context(|| format!("failed to save xray.service to {SYSTEMD_DIR}"))?;
 
     // nginx config
@@ -265,7 +267,7 @@ fn configure(
         std::fs::create_dir_all(&nginx).with_context(|| format!("failed to create {NGINX_DIR}"))?;
     }
     let nxing_data = replace_vars(NGINX_CONF);
-    std::fs::write(etc.join("nginx.conf"), nxing_data)
+    std::fs::write(nginx.join("nginx.conf"), nxing_data)
         .with_context(|| format!("failed to save nginx.conf to {NGINX_DIR}"))?;
 
     // cron config
