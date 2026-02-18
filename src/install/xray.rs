@@ -186,6 +186,63 @@ fn install_xray(sh: &Shell, dl_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+#[cfg_attr(feature = "fake-cert", expect(unused))]
+fn configure_cert(
+    sh: &Shell,
+    args: &XrayInstallArgs,
+    home_dir: &Path,
+) -> Result<AcmeInstallResult> {
+    let cert_dir = home_dir.join("xray-cert");
+    if !cert_dir.exists() {
+        eprintln!("[install cert] creating directory {}", cert_dir.display());
+        std::fs::create_dir_all(&cert_dir)
+            .with_context(|| format!("failed to create {}", cert_dir.display()))?;
+    }
+
+    #[cfg(feature = "fake-cert")]
+    {
+        eprintln!("[install cert] creating fake cert");
+        std::fs::write(cert_dir.join("xray.crt"), "fake").context("failed to create xray.crt")?;
+        std::fs::write(cert_dir.join("xray.key"), "fake").context("failed to create xray.key")?;
+        return Ok(AcmeInstallResult { cert_dir });
+    }
+
+    let domain = &args.domain;
+    let acme_bin = home_dir.join(".acme.sh/acme.sh");
+    const ACME_INSTALLER: &str = "/tmp/acme-install.sh";
+    if !PathBuf::from(ACME_INSTALLER).exists() {
+        cmd!(
+            sh,
+            "wget --no-clobber -O {ACME_INSTALLER} https://get.acme.sh"
+        )
+        .run()?;
+    }
+    if !acme_bin.exists() {
+        cmd!(sh, "sh {ACME_INSTALLER}").run()?;
+    }
+
+    cmd!(sh, "{acme_bin} --upgrade --auto-upgrade").run()?;
+
+    cmd!(sh, "{acme_bin} --set-default-ca --server zerossl").run()?;
+    let email = &args.zerossl_email;
+    cmd!(
+        sh,
+        "{acme_bin} --register-account -m {email} --debug 2 --output-insecure"
+    )
+    .run()?;
+    cmd!(
+        sh,
+        "{acme_bin} --issue -d {domain} --keylength ec-256 --nginx"
+    )
+    .run()?;
+
+    let cert_dir_str = cert_dir.display().to_string();
+    cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir_str}/xray.crt --key-file {cert_dir_str}/xray.key").run()?;
+    cmd!(sh, "chmod +r {cert_dir_str}/xray.key").run()?;
+
+    Ok(AcmeInstallResult { cert_dir })
+}
+
 fn configure(
     args: &XrayInstallArgs,
     users_config: &mut UsersConfig,
@@ -288,63 +345,6 @@ fn configure(
     std::fs::write(path, cert_renew_cron).context("failed to write cert-renew cron")?;
 
     Ok(())
-}
-
-#[cfg_attr(feature = "fake-cert", expect(unused))]
-fn configure_cert(
-    sh: &Shell,
-    args: &XrayInstallArgs,
-    home_dir: &Path,
-) -> Result<AcmeInstallResult> {
-    let cert_dir = home_dir.join("xray-cert");
-    if !cert_dir.exists() {
-        eprintln!("[install cert] creating directory {}", cert_dir.display());
-        std::fs::create_dir_all(&cert_dir)
-            .with_context(|| format!("failed to create {}", cert_dir.display()))?;
-    }
-
-    #[cfg(feature = "fake-cert")]
-    {
-        eprintln!("[install cert] creating fake cert");
-        std::fs::write(cert_dir.join("xray.crt"), "fake").context("failed to create xray.crt")?;
-        std::fs::write(cert_dir.join("xray.key"), "fake").context("failed to create xray.key")?;
-        return Ok(AcmeInstallResult { cert_dir });
-    }
-
-    let domain = &args.domain;
-    let acme_bin = home_dir.join(".acme.sh/acme.sh");
-    const ACME_INSTALLER: &str = "/tmp/acme-install.sh";
-    if !PathBuf::from(ACME_INSTALLER).exists() {
-        cmd!(
-            sh,
-            "wget --no-clobber -O {ACME_INSTALLER} https://get.acme.sh"
-        )
-        .run()?;
-    }
-    if !acme_bin.exists() {
-        cmd!(sh, "sh {ACME_INSTALLER}").run()?;
-    }
-
-    cmd!(sh, "{acme_bin} --upgrade --auto-upgrade").run()?;
-
-    cmd!(sh, "{acme_bin} --set-default-ca --server zerossl").run()?;
-    let email = &args.zerossl_email;
-    cmd!(
-        sh,
-        "{acme_bin} --register-account -m {email} --debug 2 --output-insecure"
-    )
-    .run()?;
-    cmd!(
-        sh,
-        "{acme_bin} --issue -d {domain} --keylength ec-256 --nginx"
-    )
-    .run()?;
-
-    let cert_dir_str = cert_dir.display().to_string();
-    cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir_str}/xray.crt --key-file {cert_dir_str}/xray.key").run()?;
-    cmd!(sh, "chmod +r {cert_dir_str}/xray.key").run()?;
-
-    Ok(AcmeInstallResult { cert_dir })
 }
 
 fn print_users_links(users: &[Client], domain: &str) {
