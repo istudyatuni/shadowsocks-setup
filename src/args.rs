@@ -68,6 +68,7 @@ pub enum XrayArgs {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Parser)]
+#[clap(arg_required_else_help = true)]
 pub struct XrayInstallArgs {
     /// Enable xray api
     #[arg(long)]
