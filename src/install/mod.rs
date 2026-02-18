@@ -43,6 +43,15 @@ pub fn create_and_cd_to_artifacts_dir(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
+pub fn create_dir(path: &Path) -> Result<()> {
+    if !path.exists() {
+        eprintln!("creating directory {}", path.display());
+        std::fs::create_dir_all(path)
+            .with_context(|| format!("failed to create {}", path.display()))?;
+    }
+    Ok(())
+}
+
 pub fn path_to_str(p: &Path) -> Result<String> {
     p.to_str()
         .map(ToString::to_string)

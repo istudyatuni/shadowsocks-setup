@@ -13,7 +13,10 @@ use crate::{
     version::Version,
 };
 
-use super::xray_config::{Client, XrayConfig};
+use super::{
+    create_dir,
+    xray_config::{Client, XrayConfig},
+};
 
 const DL_URL: &str = "https://github.com/XTLS/Xray-core/releases/download";
 const DL_FILE: &str = "Xray-linux-64.zip";
@@ -356,15 +359,6 @@ fn print_users_links(users: &[Client], domain: &str) {
 
 fn download_url(version: &Version) -> String {
     DL_URL.to_owned() + "/" + version.as_prefixed().as_str() + "/" + DL_FILE
-}
-
-fn create_dir(path: &Path) -> Result<()> {
-    if !path.exists() {
-        eprintln!("creating directory {}", path.display());
-        std::fs::create_dir_all(path)
-            .with_context(|| format!("failed to create {}", path.display()))?;
-    }
-    Ok(())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
