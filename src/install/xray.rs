@@ -155,7 +155,7 @@ fn download(sh: &Shell, version: &Version, dl_dir: &Path) -> Result<()> {
         bail!("hash check failed, expected sha512 hash not found, hash: {hash}")
     }
 
-    cmd!(sh, "unzip {file}").run()?;
+    cmd!(sh, "unzip -u {file}").run()?;
 
     drop(_new_dir);
 
