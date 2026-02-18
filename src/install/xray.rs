@@ -176,11 +176,10 @@ fn install_xray(sh: &Shell, dl_dir: &Path) -> Result<()> {
     eprintln!("creating directory {dir}");
     std::fs::create_dir_all(dir).with_context(|| format!("failed to create {dir}"))?;
     for file in ["geoip.dat", "geosite.dat"] {
-        std::fs::rename(
-            sh.current_dir().join(file),
-            format!("/usr/local/share/xray/{file}"),
-        )
-        .with_context(|| format!("failed to move {file} to {dir}"))?;
+        let source = sh.current_dir().join(file);
+        eprintln!("moving {} to {dir}", source.display());
+        std::fs::rename(source, format!("{dir}/{file}"))
+            .with_context(|| format!("failed to move {file} to {dir}"))?;
     }
 
     drop(_new_dir);
@@ -284,8 +283,9 @@ fn configure(
     std::fs::create_dir_all(&etc).with_context(|| format!("failed to create {XRAY_ETC_DIR}"))?;
 
     let config_data = replace_vars(XRAY_CONF);
-    std::fs::write(etc.join("05_main.json"), config_data)
-        .with_context(|| format!("failed to save 05_main.json to {XRAY_ETC_DIR}"))?;
+    let main_file = etc.join("05_main.json");
+    std::fs::write(&main_file, config_data)
+        .with_context(|| format!("failed to save 05_main.json to {}", main_file.display()))?;
     if args.api {
         let config_data = replace_vars(XRAY_API_CONF);
         // writing 01_api before 05_main because routing.rules[0] from 01_api
