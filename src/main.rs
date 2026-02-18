@@ -41,6 +41,7 @@ fn main() -> Result<()> {
         },
         Args::Xray { cmd } => match cmd {
             XrayArgs::Install(args) => install::xray::run_install_manager(&sh, args)?,
+            XrayArgs::InstallStep { step } => install::xray::install(&sh, step)?,
         },
     }
 

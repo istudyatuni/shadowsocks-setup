@@ -103,27 +103,34 @@ pub struct XrayInstallArgs {
 pub enum XrayInstallStep {
     DownloadXray,
     InstallXray,
+    ConfigureFirewall,
+    ConfigureCert,
+    ConfigureElse,
 }
 
 impl Args {
     pub fn need_root(&self) -> bool {
         match self {
-            Self::Xray { cmd } => match cmd {
-                XrayArgs::InstallStep { step } => step.need_root(),
-                _ => false,
-            },
+            Self::Xray {
+                cmd: XrayArgs::InstallStep { step },
+            } => step.need_root(),
             _ => false,
         }
     }
 }
 
 impl XrayInstallStep {
-    const VALUES: &[Self] = &[Self::DownloadXray, Self::InstallXray];
+    const VALUES: &[Self] = &[
+        Self::DownloadXray,
+        Self::InstallXray,
+        Self::ConfigureFirewall,
+        Self::ConfigureCert,
+    ];
 
     pub fn need_root(self) -> bool {
         match self {
-            Self::DownloadXray => false,
-            Self::InstallXray => true,
+            Self::DownloadXray | Self::ConfigureCert => false,
+            Self::InstallXray | Self::ConfigureFirewall | Self::ConfigureElse => true,
         }
     }
     pub fn values() -> &'static [Self] {
@@ -137,6 +144,9 @@ impl Display for XrayInstallStep {
         let s = match self {
             Self::DownloadXray => "download-xray",
             Self::InstallXray => "install-xray",
+            Self::ConfigureFirewall => "configure-firewall",
+            Self::ConfigureCert => "configure-cert",
+            Self::ConfigureElse => "configure-else",
         };
         s.fmt(f)
     }

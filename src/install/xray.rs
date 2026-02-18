@@ -1,4 +1,4 @@
-#![expect(unused)]
+// #![expect(unused)]
 
 use std::path::{Path, PathBuf};
 
@@ -51,14 +51,15 @@ const STATE_FILE: &str = "/tmp/xray-install-state.json";
 
 pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
     let home = std::env::var("HOME")
-        .inspect_err(|e| eprintln!("failed to get HOME variable, using /root"))
+        .inspect_err(|e| eprintln!("failed to get HOME variable, using /root: {e}"))
         .unwrap_or_else(|_| "/root".to_string());
 
-    let mut state = InstallState {
+    let state = InstallState {
         args,
         home_dir: PathBuf::from(&home),
         home_dir_str: home,
         download_dir: None,
+        cert_dir: None,
     };
     let state = serde_json::to_string(&state).context("failed to serialize install state")?;
     std::fs::write(STATE_FILE, state).context("failed to save install state")?;
@@ -73,10 +74,11 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
 
 pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
     let state = std::fs::read_to_string(STATE_FILE).context("failed to read install state")?;
-    let state: InstallState =
+    let mut state: InstallState =
         serde_json::from_str(&state).context("failed to deserialize install state")?;
-    let args = state.args;
+    let args = &state.args;
 
+    let mut should_save_state = false;
     match step {
         XrayInstallStep::DownloadXray => {
             let latest_version = get_latest_xray_version()?;
@@ -85,21 +87,37 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
             check_requirements(sh, INSTALL_EXE_REQUIRED)?;
             let dl_dir = sh.current_dir().join(latest_version.to_string());
             download(sh, &latest_version, &dl_dir)?;
+            state.download_dir = Some(dl_dir);
+            should_save_state = true;
         }
         XrayInstallStep::InstallXray => {
-            let Some(dl_dir) = state.download_dir else {
+            let Some(dl_dir) = &state.download_dir else {
                 bail!("invalid state: no download_dir")
             };
+            install_xray(sh, &dl_dir)?;
+        }
+        XrayInstallStep::ConfigureFirewall => {
+            open_firewall_ports_and_enable(sh, &[22, 80, 443])?;
+        }
+        XrayInstallStep::ConfigureCert => {
+            let acme = configure_cert(sh, args, &state.home_dir)?;
+            state.cert_dir = Some(acme.cert_dir);
+            should_save_state = true;
+        }
+        XrayInstallStep::ConfigureElse => {
+            let Some(cert_dir) = &state.cert_dir else {
+                bail!("invalid state: no download_dir")
+            };
+            let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
+            configure(sh, args, &mut users_config, &cert_dir, &state.home_dir_str)?;
+            print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
         }
     }
-    open_firewall_ports_and_enable(sh, &[22, 80, 443])?;
 
-    let acme = configure_cert(sh, &args, &state.home_dir)?;
-    let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
-    configure(sh, &args, &mut users_config, acme, &state.home_dir_str)?;
-    print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
-
-    todo!("restart");
+    if should_save_state {
+        let state = serde_json::to_string(&state).context("failed to serialize install state")?;
+        std::fs::write(STATE_FILE, state).context("failed to save install state")?;
+    }
 
     Ok(())
 }
@@ -170,7 +188,7 @@ fn configure(
     sh: &Shell,
     args: &XrayInstallArgs,
     users_config: &mut UsersConfig,
-    acme: AcmeInstallResult,
+    cert_dir: &Path,
     home: &str,
 ) -> Result<()> {
     let cron_dir = PathBuf::from(CRON_DIR);
@@ -255,7 +273,7 @@ fn configure(
 
     // acme cron
 
-    std::fs::write(acme.cert_dir.join("renew.sh"), replace_vars(ACME_RENEW_SH))
+    std::fs::write(cert_dir.join("renew.sh"), replace_vars(ACME_RENEW_SH))
         .context("failed to save renew.sh")?;
 
     let cert_renew_cron = replace_vars(CRON_RENEW_CERT);
@@ -265,7 +283,11 @@ fn configure(
     Ok(())
 }
 
-fn configure_cert(sh: &Shell, args: &XrayInstallArgs, home_dir: &Path) -> Result<AcmeInstallResult> {
+fn configure_cert(
+    sh: &Shell,
+    args: &XrayInstallArgs,
+    home_dir: &Path,
+) -> Result<AcmeInstallResult> {
     let domain = &args.domain;
     let acme_bin = home_dir.join(".acme.sh/acme.sh");
     const ACME_INSTALLER: &str = "/tmp/acme-install.sh";
@@ -301,10 +323,7 @@ fn configure_cert(sh: &Shell, args: &XrayInstallArgs, home_dir: &Path) -> Result
     cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir_str}/xray.crt --key-file {cert_dir_str}/xray.key").run()?;
     cmd!(sh, "chmod +r {cert_dir_str}/xray.key").run()?;
 
-    Ok(AcmeInstallResult {
-        bin: acme_bin,
-        cert_dir,
-    })
+    Ok(AcmeInstallResult { cert_dir })
 }
 
 fn print_users_links(users: &[Client], domain: &str) {
@@ -328,6 +347,7 @@ struct InstallState {
     home_dir: PathBuf,
     home_dir_str: String,
     download_dir: Option<PathBuf>,
+    cert_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Serialize)]
@@ -384,6 +404,5 @@ impl UsersConfig {
 }
 
 struct AcmeInstallResult {
-    bin: PathBuf,
     cert_dir: PathBuf,
 }
