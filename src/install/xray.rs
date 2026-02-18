@@ -94,7 +94,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
             let Some(dl_dir) = &state.download_dir else {
                 bail!("invalid state: no download_dir")
             };
-            install_xray(sh, &dl_dir)?;
+            install_xray(sh, dl_dir)?;
         }
         XrayInstallStep::ConfigureFirewall => {
             open_firewall_ports_and_enable(sh, &[22, 80, 443])?;
@@ -109,7 +109,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
                 bail!("invalid state: no download_dir")
             };
             let mut users_config = UsersConfig::empty(VLESS_INBOUND_TAG);
-            configure(sh, args, &mut users_config, &cert_dir, &state.home_dir_str)?;
+            configure(args, &mut users_config, cert_dir, &state.home_dir_str)?;
             print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
         }
     }
@@ -185,7 +185,6 @@ fn install_xray(sh: &Shell, dl_dir: &Path) -> Result<()> {
 }
 
 fn configure(
-    sh: &Shell,
     args: &XrayInstallArgs,
     users_config: &mut UsersConfig,
     cert_dir: &Path,
@@ -209,9 +208,9 @@ fn configure(
         ("VAR_XRAY_ETC_DIR", XRAY_ETC_DIR.to_string()),
     ];
     let replace_vars = |text: &str| {
-        let res = text.to_string();
+        let mut res = text.to_string();
         for (name, value) in &vars {
-            res.replace(name, value);
+            res = res.replace(name, value);
         }
         // todo: check no VAR_ remains
         res
