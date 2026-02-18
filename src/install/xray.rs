@@ -30,6 +30,7 @@ const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
 const NGINX_CONF: &str = include_str!("../../static/nginx.conf");
 const XRAY_SERVICE: &str = include_str!("../../static/xray.service");
 const XRAY_API_CONF: &str = include_str!("../../static/xray_01_api.json");
+const XRAY_BASE_CONF: &str = include_str!("../../static/xray_03_base.json");
 
 const CRON_RENEW_CERT: &str = include_str!("../../static/cert-renew.cron");
 const CRON_RENEW_DOMAIN: &str = include_str!("../../static/domain-renew.cron");
@@ -296,6 +297,7 @@ fn configure(
         // be before other rules in 05_main after loading
         save_config(&etc, "01_api.json", XRAY_API_CONF)?;
     }
+    save_config(&etc, "03_base.json", XRAY_BASE_CONF)?;
     if !args.add_user_ids.is_empty() {
         users_config.reserve_users_space(args.add_user_ids.len());
         for id in &args.add_user_ids {
@@ -376,10 +378,8 @@ struct InstallState {
 
 #[derive(Debug, Serialize)]
 struct XrayConfig {
-    dns: serde_json::Value,
     routing: RoutingConfig,
     inbounds: Vec<InboundConfig>,
-    outbounds: serde_json::Value,
 
     #[serde(skip_serializing)]
     inbound_with_clients_index: usize,
@@ -474,28 +474,12 @@ impl XrayConfig {
         };
 
         Ok(Self {
-            dns: json!({
-                "servers": [
-                    "https+local://1.1.1.1/dns-query",
-                    "localhost"
-                ]
-            }),
             routing: RoutingConfig {
                 domain_strategy: "IPIfNonMatch".to_string(),
                 rules: routing_rules,
             },
             inbounds: vec![vless_inbound_rule],
             inbound_with_clients_index: 0,
-            outbounds: json!([
-                {
-                    "tag": "direct",
-                    "protocol": "freedom"
-                },
-                {
-                    "tag": "block",
-                    "protocol": "blackhole"
-                }
-            ]),
         })
     }
     fn users(&self) -> &[Client] {
