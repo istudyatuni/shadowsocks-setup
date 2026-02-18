@@ -47,7 +47,7 @@ impl XrayConfig {
                 clients: vec![],
                 rest: json!({
                     "decryption": "none",
-                    "fallbacks": [{ "dest": 8080 }]
+                    "fallbacks": [{ "dest": 8000 }]
                 }),
             },
             rest: json!({

@@ -76,7 +76,7 @@ pub struct XrayInstallArgs {
     pub api: bool,
 
     /// Xray api port
-    #[arg(long, default_value_t = 47329)]
+    #[arg(long, default_value_t = 8080)]
     pub api_port: u32,
 
     /// Server domain
