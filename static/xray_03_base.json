@@ -16,13 +16,9 @@
       },
       {
         "ip": [
-          "geoip:private"
-        ],
-        "outboundTag": "block"
-      },
-      {
-        "ip": [
-          "geoip:cn"
+          "geoip:private",
+          "geoip:cn",
+          "geoip:ru"
         ],
         "outboundTag": "block"
       },
