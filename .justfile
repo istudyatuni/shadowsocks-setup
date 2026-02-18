@@ -12,12 +12,15 @@ build-ci: build-static && pack-release
 # build static binary
 build: build-static pack-release
 
+test:
+	cargo test
+
 extract-changelog file:
 	@# about sed: https://askubuntu.com/a/849016
 	sed -n "/^## $(just get-build-version ./target/sssetup)/,/^## /p" CHANGELOG.md | grep -v '^## ' > "{{ file }}"
 
 [private]
-build-static *args:
+build-static *args: test
 	@# CARGO_HOME and /tmp/.cargo is used to use local cargo download cache
 	docker run --rm \
 		-v "$(pwd)":/build \

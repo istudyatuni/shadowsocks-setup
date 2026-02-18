@@ -136,7 +136,6 @@ impl XrayInstallStep {
         }
     }
     pub fn values() -> &'static [Self] {
-        assert!(Self::VALUES.len() == Self::value_variants().len());
         Self::VALUES
     }
 }
@@ -151,5 +150,15 @@ impl Display for XrayInstallStep {
             Self::ConfigureElse => "configure-else",
         };
         s.fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_xray_steps_count() {
+        assert!(XrayInstallStep::VALUES.len() == XrayInstallStep::value_variants().len());
     }
 }
