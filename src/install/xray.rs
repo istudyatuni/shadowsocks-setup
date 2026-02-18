@@ -9,7 +9,9 @@ use xshell::{Shell, cmd};
 use crate::{
     args::{XrayInstallArgs, XrayInstallStep},
     github::get_latest_release_tag,
-    install::{check_requirements, network::open_firewall_ports_and_enable},
+    install::{
+        check_requirements, create_and_cd_to_artifacts_dir, network::open_firewall_ports_and_enable,
+    },
     version::Version,
 };
 
@@ -45,6 +47,8 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 const STATE_FILE: &str = "/tmp/xray-install-state.json";
 
 pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
+    create_and_cd_to_artifacts_dir(sh)?;
+
     let home = std::env::var("HOME")
         .inspect_err(|e| eprintln!("failed to get HOME variable, using /root: {e}"))
         .unwrap_or_else(|_| "/root".to_string());

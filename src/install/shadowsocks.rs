@@ -14,7 +14,7 @@ use crate::{
     args::{ShadowsocksInstallArgs, ShadowsocksUpdateArgs},
     github::get_latest_release_tag,
     install::{
-        check_requirements,
+        check_requirements, create_and_cd_to_artifacts_dir,
         input::shadowsocks::Update,
         network::{get_ipv4, open_firewall_ports_and_enable},
     },
@@ -49,6 +49,8 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 const UPDATE_EXE_REQUIRED: &[&str] = &["wget", "sha256sum", "tar", "systemctl", "cp"];
 
 pub fn install(sh: &Shell, args: ShadowsocksInstallArgs) -> Result<()> {
+    create_and_cd_to_artifacts_dir(sh)?;
+
     let installed_version = get_installed_version(sh);
     eprintln!("[install] loading latest version");
     let latest_version = get_latest_ss_version()?;
@@ -68,6 +70,8 @@ pub fn install(sh: &Shell, args: ShadowsocksInstallArgs) -> Result<()> {
 }
 
 pub fn update(sh: &Shell, args: ShadowsocksUpdateArgs) -> Result<()> {
+    create_and_cd_to_artifacts_dir(sh)?;
+
     if get_installed_version(sh).is_none() {
         bail!("shadowsocks not installed")
     }
@@ -89,6 +93,8 @@ pub fn update(sh: &Shell, args: ShadowsocksUpdateArgs) -> Result<()> {
 }
 
 pub fn uninstall(sh: &Shell) -> Result<()> {
+    create_and_cd_to_artifacts_dir(sh)?;
+
     cmd!(sh, "systemctl disable ssserver").run()?;
 
     let to_backup = [CONFIG_FILE];

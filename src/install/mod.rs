@@ -1,10 +1,12 @@
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use xshell::{Shell, cmd};
 
 pub mod input;
 mod network;
 pub mod shadowsocks;
 pub mod xray;
+
+const ARTIFACTS_DIR: &str = "artifacts";
 
 pub fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
     println!("[prepare] checking required executables");
@@ -29,4 +31,11 @@ pub fn exe_in_path(sh: &Shell, exe: &str) -> bool {
         .ignore_stdout()
         .run()
         .is_ok()
+}
+
+pub fn create_and_cd_to_artifacts_dir(sh: &Shell) -> Result<()> {
+    std::fs::create_dir_all(ARTIFACTS_DIR).context("failed to create artifacts dir")?;
+    sh.change_dir(ARTIFACTS_DIR);
+    std::env::set_current_dir(ARTIFACTS_DIR).context("failed to change current dir")?;
+    Ok(())
 }

@@ -1,6 +1,4 @@
-use std::fs::create_dir_all;
-
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Result, anyhow, bail};
 use clap::Parser;
 use xshell::Shell;
 
@@ -11,8 +9,6 @@ mod cipher;
 mod github;
 mod install;
 mod version;
-
-const ARTIFACTS_DIR: &str = "artifacts";
 
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -27,18 +23,6 @@ fn main() -> Result<()> {
         if sudo::escalate_if_needed().map_err(|e| anyhow!("{e}"))? != sudo::RunningAs::Root {
             bail!("This script requires sudo");
         }
-    }
-
-    // do not cd to artifacts when running xray step
-    if !matches!(
-        args,
-        Args::Xray {
-            cmd: XrayArgs::InstallStep { .. }
-        }
-    ) {
-        create_dir_all(ARTIFACTS_DIR).context("failed to create artifacts dir")?;
-        sh.change_dir(ARTIFACTS_DIR);
-        std::env::set_current_dir(ARTIFACTS_DIR).context("failed to change current dir")?;
     }
 
     match args {
