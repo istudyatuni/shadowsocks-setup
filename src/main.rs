@@ -29,9 +29,17 @@ fn main() -> Result<()> {
         }
     }
 
-    create_dir_all(ARTIFACTS_DIR).context("failed to create artifacts dir")?;
-    sh.change_dir(ARTIFACTS_DIR);
-    std::env::set_current_dir(ARTIFACTS_DIR).context("failed to change current dir")?;
+    // do not cd to artifacts when running xray step
+    if !matches!(
+        args,
+        Args::Xray {
+            cmd: XrayArgs::InstallStep { .. }
+        }
+    ) {
+        create_dir_all(ARTIFACTS_DIR).context("failed to create artifacts dir")?;
+        sh.change_dir(ARTIFACTS_DIR);
+        std::env::set_current_dir(ARTIFACTS_DIR).context("failed to change current dir")?;
+    }
 
     match args {
         Args::Shadowsocks { cmd } => match cmd {
