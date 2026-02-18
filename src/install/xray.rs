@@ -480,8 +480,8 @@ impl XrayConfig {
                         "alpn": "http/1.1",
                         "certificates": [
                             {
-                                "certificateFile": path_to_str(&cert_dir.join("xray.crt")).context("converting xray.crt path")?,
-                                "keyFile": path_to_str(&cert_dir.join("xray.key")).context("converting xray.key path")?,
+                                "certificateFile": path_to_str(&cert_dir.join("xray.crt"))?,
+                                "keyFile": path_to_str(&cert_dir.join("xray.key"))?,
                             }
                         ]
                     }
@@ -533,11 +533,13 @@ impl XrayConfig {
             .settings
             .clients
     }
-    fn reserve_users_space(&mut self, count: usize) {
-        self.inbounds[self.inbound_with_clients_index]
+    fn users_mut(&mut self) -> &mut Vec<Client> {
+        &mut self.inbounds[self.inbound_with_clients_index]
             .settings
             .clients
-            .reserve(count);
+    }
+    fn reserve_users_space(&mut self, count: usize) {
+        self.users_mut().reserve(count);
     }
     fn add_users(&mut self, count: usize) -> &mut Self {
         self.reserve_users_space(count);
@@ -550,13 +552,10 @@ impl XrayConfig {
         self.add_user_with_id(Uuid::new_v4().to_string().as_str())
     }
     fn add_user_with_id(&mut self, id: &str) -> &mut Self {
-        self.inbounds[self.inbound_with_clients_index]
-            .settings
-            .clients
-            .push(Client {
-                id: id.to_string(),
-                flow: "xtls-rprx-vision".to_string(),
-            });
+        self.users_mut().push(Client {
+            id: id.to_string(),
+            flow: "xtls-rprx-vision".to_string(),
+        });
         self
     }
 }
@@ -568,5 +567,5 @@ struct AcmeInstallResult {
 fn path_to_str(p: &Path) -> Result<String> {
     p.to_str()
         .map(ToString::to_string)
-        .ok_or_else(|| anyhow!("path is not valid utf-8"))
+        .ok_or_else(|| anyhow!("path {} is not valid utf-8", p.display()))
 }
