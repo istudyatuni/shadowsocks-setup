@@ -9,6 +9,7 @@ use crate::{cipher::Cipher, version::Version};
 #[derive(Debug, Parser)]
 #[clap(version)]
 pub enum Args {
+    #[clap(visible_alias = "ss")]
     Shadowsocks {
         #[clap(subcommand)]
         cmd: ShadowsocksArgs,
