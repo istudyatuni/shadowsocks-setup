@@ -29,7 +29,6 @@ const VLESS_INBOUND_TAG: &str = "vless";
 const ACME_RENEW_SH: &str = include_str!("../../static/acme-renew.sh");
 const NGINX_CONF: &str = include_str!("../../static/nginx.conf");
 const XRAY_CONF: &str = include_str!("../../static/xray_05_main.json");
-const XRAY_API_CONF: &str = include_str!("../../static/xray_01_api.json");
 const XRAY_SERVICE: &str = include_str!("../../static/xray.service");
 
 const CRON_RENEW_CERT: &str = include_str!("../../static/cert-renew.cron");
@@ -109,10 +108,10 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
             let Some(cert_dir) = &state.cert_dir else {
                 bail!("invalid state: no download_dir")
             };
-            let mut users_config = XrayConfig::new(args.api);
+            let mut users_config = XrayConfig::new(args.api, args.api_port, cert_dir)?;
             configure(args, &mut users_config, cert_dir, &state.home_dir_str)?;
             start_services(sh)?;
-            print_users_links(&users_config.inbounds[0].settings.clients, &args.domain);
+            print_users_links(users_config.users(), &args.domain);
         }
     }
 
@@ -287,13 +286,6 @@ fn configure(
     let main_file = etc.join("05_main.json");
     std::fs::write(&main_file, config_data)
         .with_context(|| format!("failed to save 05_main.json to {}", main_file.display()))?;
-    if args.api {
-        let config_data = replace_vars(XRAY_API_CONF);
-        // writing 01_api before 05_main because routing.rules[0] from 01_api
-        // should be before other rules in 05_main after loading
-        std::fs::write(etc.join("01_api.json"), config_data)
-            .with_context(|| format!("failed to save 01_api.json to {XRAY_ETC_DIR}"))?;
-    }
     if !args.add_user_ids.is_empty() {
         users_config.reserve_users_space(args.add_user_ids.len());
         for id in &args.add_user_ids {
@@ -384,8 +376,13 @@ struct InstallState {
 struct XrayConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     api: Option<serde_json::Value>,
+    dns: serde_json::Value,
     routing: RoutingConfig,
     inbounds: Vec<InboundConfig>,
+    outbounds: serde_json::Value,
+
+    #[serde(skip_serializing)]
+    inbound_with_clients_index: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -399,11 +396,18 @@ struct RoutingConfig {
 struct InboundConfig {
     tag: String,
     settings: InboundConfigSettings,
+
+    #[serde(flatten)]
+    rest: serde_json::Value,
 }
 
 #[derive(Debug, Serialize)]
 struct InboundConfigSettings {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     clients: Vec<Client>,
+
+    #[serde(flatten)]
+    rest: serde_json::Value,
 }
 
 #[derive(Debug, Serialize)]
@@ -413,7 +417,7 @@ struct Client {
 }
 
 impl XrayConfig {
-    fn new(api: bool) -> Self {
+    fn new(api: bool, api_port: u32, cert_dir: &Path) -> Result<Self> {
         let mut routing_rules = Vec::with_capacity(4);
         if api {
             routing_rules.push(json!({
@@ -443,27 +447,97 @@ impl XrayConfig {
               "outboundTag": "block"
             }),
         ]);
+        let api_inbound_rule = InboundConfig {
+            tag: "api".to_string(),
+            settings: InboundConfigSettings {
+                clients: vec![],
+                rest: json!({
+                    "address": "127.0.0.1"
+                }),
+            },
+            rest: json!({
+                "listen": "127.0.0.1",
+                "port": api_port,
+                "protocol": "dokodemo-door"
+            }),
+        };
+        let vless_inbound_rule = InboundConfig {
+            tag: "vless".to_string(),
+            settings: InboundConfigSettings {
+                clients: vec![],
+                rest: json!({
+                    "decryption": "none",
+                    "fallbacks": [{ "dest": 8080 }]
+                }),
+            },
+            rest: json!({
+                "port": 443,
+                "protocol": "vless",
+                "streamSettings": {
+                    "network": "tcp",
+                    "security": "tls",
+                    "tlsSettings": {
+                        "alpn": "http/1.1",
+                        "certificates": [
+                            {
+                                "certificateFile": path_to_str(&cert_dir.join("xray.crt")).context("converting xray.crt path")?,
+                                "keyFile": path_to_str(&cert_dir.join("xray.key")).context("converting xray.key path")?,
+                            }
+                        ]
+                    }
+                }
+            }),
+        };
 
-        Self {
+        Ok(Self {
             api: api.then_some(json!({
-              "tag": "api",
-              "services": [
-                "HandlerService",
-                "ReflectionService"
-              ]
+                "tag": "api",
+                "services": [
+                    "HandlerService",
+                    "ReflectionService"
+                ]
             })),
+            dns: json!({
+                "servers": [
+                    "https+local://1.1.1.1/dns-query",
+                    "localhost"
+                ]
+            }),
             routing: RoutingConfig {
                 domain_strategy: "IPIfNonMatch".to_string(),
                 rules: routing_rules,
             },
-            inbounds: vec![InboundConfig {
-                tag: "vless".to_string(),
-                settings: InboundConfigSettings { clients: vec![] },
-            }],
-        }
+            inbounds: {
+                let mut res = Vec::with_capacity(2);
+                if api {
+                    res.push(api_inbound_rule);
+                }
+                res.push(vless_inbound_rule);
+                res
+            },
+            inbound_with_clients_index: if api { 1 } else { 0 },
+            outbounds: json!([
+                {
+                    "tag": "direct",
+                    "protocol": "freedom"
+                },
+                {
+                    "tag": "block",
+                    "protocol": "blackhole"
+                }
+            ]),
+        })
+    }
+    fn users(&self) -> &[Client] {
+        &self.inbounds[self.inbound_with_clients_index]
+            .settings
+            .clients
     }
     fn reserve_users_space(&mut self, count: usize) {
-        self.inbounds[0].settings.clients.reserve(count);
+        self.inbounds[self.inbound_with_clients_index]
+            .settings
+            .clients
+            .reserve(count);
     }
     fn add_users(&mut self, count: usize) -> &mut Self {
         self.reserve_users_space(count);
@@ -476,14 +550,23 @@ impl XrayConfig {
         self.add_user_with_id(Uuid::new_v4().to_string().as_str())
     }
     fn add_user_with_id(&mut self, id: &str) -> &mut Self {
-        self.inbounds[0].settings.clients.push(Client {
-            id: id.to_string(),
-            flow: "xtls-rprx-vision".to_string(),
-        });
+        self.inbounds[self.inbound_with_clients_index]
+            .settings
+            .clients
+            .push(Client {
+                id: id.to_string(),
+                flow: "xtls-rprx-vision".to_string(),
+            });
         self
     }
 }
 
 struct AcmeInstallResult {
     cert_dir: PathBuf,
+}
+
+fn path_to_str(p: &Path) -> Result<String> {
+    p.to_str()
+        .map(ToString::to_string)
+        .ok_or_else(|| anyhow!("path is not valid utf-8"))
 }

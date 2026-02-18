@@ -1,10 +1,4 @@
 {
-  "dns": {
-    "servers": [
-      "https+local://1.1.1.1/dns-query",
-      "localhost"
-    ]
-  },
   "inbounds": [
     {
       "tag": "VAR_VLESS_INBOUND_TAG",
@@ -31,16 +25,6 @@
           ]
         }
       }
-    }
-  ],
-  "outbounds": [
-    {
-      "tag": "direct",
-      "protocol": "freedom"
-    },
-    {
-      "tag": "block",
-      "protocol": "blackhole"
     }
   ]
 }
