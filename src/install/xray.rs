@@ -295,8 +295,9 @@ fn configure(
         (
             vars::DOMAIN_RENEW_URL,
             args.domain_renew_url
-                .clone()
-                .unwrap_or_else(|| "NOT_SET".to_string()),
+                .as_deref()
+                .unwrap_or("NOT_SET")
+                .to_string(),
         ),
         (vars::VLESS_INBOUND_TAG, VLESS_INBOUND_TAG.to_string()),
         (vars::XRAY_BIN, XRAY_BIN.to_string()),
