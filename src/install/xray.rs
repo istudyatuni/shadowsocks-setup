@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    create_dir,
+    create_dir, save_json_config,
     xray_config::{Client, XrayConfig},
 };
 
@@ -45,7 +45,8 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
     "wget",
 ];
 
-const STATE_FILE: &str = "/tmp/xray-install-state.json";
+const STATE_FILE_DIR: &str = "/tmp";
+const STATE_FILE: &str = "xray-install-state.json";
 
 mod vars {
     macro_rules! vars {
@@ -107,9 +108,7 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
         download_dir: None,
         cert_dir: None,
     };
-    let state =
-        serde_json::to_string_pretty(&state).context("failed to serialize install state")?;
-    std::fs::write(STATE_FILE, state).context("failed to save install state")?;
+    save_json_config(&PathBuf::from(STATE_FILE_DIR), STATE_FILE, &state)?;
 
     let self_bin = std::env::current_exe().context("failed to get current exe")?;
     for step in XrayInstallStep::values() {
@@ -121,7 +120,10 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
 }
 
 pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
-    let state = std::fs::read_to_string(STATE_FILE).context("failed to read install state")?;
+    let state_dir = PathBuf::from(STATE_FILE_DIR);
+    let state_file = state_dir.join(STATE_FILE);
+
+    let state = std::fs::read_to_string(state_file).context("failed to read install state")?;
     let mut state: InstallState =
         serde_json::from_str(&state).context("failed to deserialize install state")?;
     let args = &state.args;
@@ -164,9 +166,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
     }
 
     if should_save_state {
-        let state =
-            serde_json::to_string_pretty(&state).context("failed to serialize install state")?;
-        std::fs::write(STATE_FILE, state).context("failed to save install state")?;
+        save_json_config(&state_dir, STATE_FILE, &state)?;
     }
 
     Ok(())
@@ -336,9 +336,7 @@ fn configure(
     } else {
         users_config.add_users(args.add_users_count);
     }
-    let config_data =
-        serde_json::to_string_pretty(&users_config).context("failed to serialize xray config")?;
-    save_config(&etc, "05_main.json", &config_data)?;
+    save_json_config(&etc, "05_main.json", users_config)?;
     drop(etc);
 
     // systemd config

@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result, anyhow, bail};
+use serde::Serialize;
 use xshell::{Shell, cmd};
 
 pub mod input;
@@ -58,6 +59,12 @@ pub fn save_config(dir: &Path, file: &str, text: &str) -> Result<()> {
     std::fs::write(path, text)
         .with_context(|| format!("failed to save {file} to {}", dir.display()))?;
     Ok(())
+}
+
+pub fn save_json_config<T: Serialize>(dir: &Path, file: &str, data: &T) -> Result<()> {
+    let text = serde_json::to_string_pretty(data)
+        .with_context(|| format!("failed to serialize {}", dir.join(file).display()))?;
+    save_config(dir, file, &text)
 }
 
 pub fn path_to_str(p: &Path) -> Result<String> {
