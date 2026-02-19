@@ -26,6 +26,10 @@ const CRON_DIR: &str = "/etc/cron.d";
 const SYSTEMD_DIR: &str = "/etc/systemd/system";
 const NGINX_DIR: &str = "/etc/nginx";
 const XRAY_ETC_DIR: &str = "/usr/local/etc/xray";
+/// Asset location. See [Xray-core]
+///
+/// [Xray-core]: https://github.com/XTLS/Xray-core/blob/12ee51e4bb1d02ece4ef4b7114efa2bcdc130995/common/platform/others.go#L21
+const XRAY_SHARE_DIR: &str = "/usr/local/share/xray";
 const XRAY_BIN: &str = "/usr/local/bin/xray";
 
 const VLESS_INBOUND_TAG: &str = "vless";
@@ -213,14 +217,13 @@ fn install_xray(sh: &Shell, dl_dir: &Path) -> Result<()> {
     std::fs::rename(sh.current_dir().join("xray"), XRAY_BIN)
         .context("failed to move xray to bin dir")?;
 
-    let dir = "/usr/local/share/xray";
-    eprintln!("creating directory {dir}");
-    std::fs::create_dir_all(dir).with_context(|| format!("failed to create {dir}"))?;
+    let share = PathBuf::from(XRAY_SHARE_DIR);
+    create_dir(&share)?;
     for file in ["geoip.dat", "geosite.dat"] {
         let source = sh.current_dir().join(file);
-        eprintln!("moving {} to {dir}", source.display());
-        std::fs::rename(source, format!("{dir}/{file}"))
-            .with_context(|| format!("failed to move {file} to {dir}"))?;
+        eprintln!("moving {} to {}", source.display(), share.display());
+        std::fs::rename(source, share.join(file))
+            .with_context(|| format!("failed to move {file} to {}", share.display()))?;
     }
 
     drop(_new_dir);
