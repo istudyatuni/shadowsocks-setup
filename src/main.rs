@@ -18,7 +18,7 @@ fn main() -> Result<()> {
     let sh = Shell::new()?;
 
     // disable in dev build
-    if cfg!(not(debug_assertions)) && args.need_root() {
+    if cfg!(not(debug_assertions)) && args.need_root() && sudo::check() != sudo::RunningAs::Root {
         eprintln!("escalating to root");
         if sudo::escalate_if_needed().map_err(|e| anyhow!("{e}"))? != sudo::RunningAs::Root {
             bail!("This script requires sudo");
