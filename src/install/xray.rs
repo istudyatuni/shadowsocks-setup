@@ -239,17 +239,9 @@ fn configure_cert(
 
     #[cfg(feature = "fake-cert")]
     {
-        eprintln!("[install cert] creating fake cert");
-        std::fs::write(
-            cert_dir.join("xray.crt"),
-            include_str!("../../static/test/fake.crt"),
-        )
-        .context("failed to create xray.crt")?;
-        std::fs::write(
-            cert_dir.join("xray.key"),
-            include_str!("../../static/test/fake.key"),
-        )
-        .context("failed to create xray.key")?;
+        eprintln!("installing fake cert");
+        save_config(&cert_dir, "xray.crt", include_str!("../../static/fake.crt"));
+        save_config(&cert_dir, "xray.key", include_str!("../../static/fake.key"));
         return Ok(AcmeInstallResult { cert_dir });
     }
 
@@ -319,9 +311,8 @@ fn configure(
         res
     };
 
-    let save_config = |dir: &Path, file: &str, text: &str| -> Result<()> {
-        save_config(dir, file, &replace_vars(text))
-    };
+    let save_config =
+        |dir: &Path, file: &str, text: &str| save_config(dir, file, &replace_vars(text));
 
     // xray configs
 

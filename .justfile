@@ -42,3 +42,16 @@ pack-release:
 [no-cd]
 get-build-version exe:
 	"{{exe}}" -V | awk -F ' ' '{ print $2 }'
+
+build-fake-cert domain="localhost": (gen-fake-cert domain) (build-static "--features=fake-cert")
+
+gen-fake-cert domain="localhost":
+	openssl req \
+		-x509 \
+		-newkey ec \
+		-pkeyopt ec_paramgen_curve:prime256v1 \
+		-keyout static/fake.key \
+		-out static/fake.crt \
+		-days 365 \
+		-nodes \
+		-subj "/C=US/ST=a/L=a/O=a/CN={{ domain }}"

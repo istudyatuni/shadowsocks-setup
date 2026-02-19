@@ -8,6 +8,7 @@ name = "sssetup"
 path = "src/main.rs"
 
 [features]
+# for using - generate cert with "just gen-fake-cert"
 fake-cert = []
 
 [profile.release]

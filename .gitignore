@@ -1,1 +1,3 @@
 /target
+/static/fake.crt
+/static/fake.key
