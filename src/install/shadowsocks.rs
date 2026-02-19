@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{Context, Result, anyhow, bail};
 use serde_json::{json, to_string_pretty};
+use tracing::{debug, error, info};
 use xshell::{Shell, cmd};
 
 use super::input::shadowsocks::Install;
@@ -52,9 +53,9 @@ pub fn install(sh: &Shell, args: ShadowsocksInstallArgs) -> Result<()> {
     create_and_cd_to_artifacts_dir(sh)?;
 
     let installed_version = get_installed_version(sh);
-    eprintln!("[install] loading latest version");
+    debug!("loading latest version");
     let latest_version = get_latest_ss_version()?;
-    eprintln!("[install] latest version: {}", latest_version.as_prefixed());
+    info!("latest version: {}", latest_version.as_prefixed());
     let latest_version = args.version.clone().unwrap_or(latest_version);
 
     let install = Install::ask(args, installed_version, latest_version)?;
@@ -79,7 +80,7 @@ pub fn update(sh: &Shell, args: ShadowsocksUpdateArgs) -> Result<()> {
     let latest_version = if let Some(version) = &args.version {
         version.clone()
     } else {
-        eprintln!("[install] loading latest version");
+        debug!("loading latest version");
         get_latest_ss_version()?
     };
     let install = Update::ask(latest_version)?;
@@ -109,8 +110,8 @@ pub fn uninstall(sh: &Shell) -> Result<()> {
             new_name = name;
         }
         match fs::rename(f, &new_name) {
-            Ok(_) => println!("[uninstall] saved {f} to {new_name}"),
-            Err(e) => eprintln!("Couldn't remove {f}: {e}"),
+            Ok(_) => info!("saved {f} to {new_name}"),
+            Err(e) => error!("Couldn't remove {f}: {e}"),
         };
     }
 
@@ -122,8 +123,8 @@ pub fn uninstall(sh: &Shell) -> Result<()> {
     ];
     for f in to_remove {
         match fs::remove_file(f) {
-            Ok(_) => println!("[uninstall] removed {f}"),
-            Err(e) => eprintln!("Couldn't remove {f}: {e}"),
+            Ok(_) => info!("removed {f}"),
+            Err(e) => error!("Couldn't remove {f}: {e}"),
         };
     }
 
@@ -175,7 +176,7 @@ fn download(sh: &Shell, version: &Version) -> Result<()> {
 }
 
 fn configure(sh: &Shell, install: &Install) -> Result<()> {
-    println!("\n[config] create shadowsocks config");
+    debug!("create shadowsocks config");
     let sssconfig = json!({
         "server": "0.0.0.0",
         "server_port": install.server_port,
@@ -184,7 +185,7 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
     });
     fs::write(CONFIG_FILE, to_string_pretty(&sssconfig)?)?;
 
-    println!("\n[config] create shadowsocks systemd service unit");
+    debug!("create shadowsocks systemd service unit");
     fs::create_dir_all(SYSTEMD_SERVICE_FOLDER)?;
     fs::write(SYSTEMD_SERVICE_FILE, SYSTEMD_SERVICE_TEXT)?;
 
@@ -194,13 +195,13 @@ fn configure(sh: &Shell, install: &Install) -> Result<()> {
     let journald_conf = PathBuf::from(JOURNALD_CONF);
     if !journald_conf.exists() {
         fs::create_dir_all(JOURNALD_CONF_FOLDER)?;
-        println!("\n[config] setting new log storing policy in {JOURNALD_CONF}");
+        debug!("setting new log storing policy in {JOURNALD_CONF}");
         fs::write(journald_conf, JOURNALD_CONF_DATA)?;
     }
 
     let sysctl_conf = PathBuf::from(SYSCTL_CONF);
     if !sysctl_conf.exists() {
-        println!("\n[config] setting kernel tweaks in {SYSCTL_CONF}");
+        debug!("setting kernel tweaks in {SYSCTL_CONF}");
         fs::write(sysctl_conf, SYSCTL_CONF_DATA)?;
         // apply
         cmd!(sh, "sysctl -p").run()?;
@@ -216,7 +217,7 @@ fn print_config(sh: &Shell, install: &Install) -> Result<()> {
     let server_ip = match get_ipv4() {
         Ok(ip) => ip,
         Err(e) => {
-            eprintln!("[error] {e}, using {DEFAULT_IP}");
+            error!("{e}, using {DEFAULT_IP}");
             DEFAULT_IP
         }
     };

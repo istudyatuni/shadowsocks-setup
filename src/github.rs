@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use reqwest::blocking::Client;
 use serde::Deserialize;
+use tracing::error;
 
 use crate::{PKG_NAME, PKG_VERSION};
 
@@ -21,7 +22,7 @@ pub fn get_latest_release_tag(owner: &str, repo: &str) -> Result<String> {
         match serde_json::from_str::<Release>(&resp).context("failed to parse json") {
             Ok(r) => r,
             Err(e) => {
-                eprintln!("github api returns invalid json:\n{resp}");
+                error!("github api returns invalid json:\n{resp}");
                 return Err(e);
             }
         };

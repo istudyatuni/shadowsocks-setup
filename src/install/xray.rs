@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
+use tracing::{debug, error, info};
 use xshell::{Shell, cmd};
 
 use crate::{
@@ -98,7 +99,7 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
     create_and_cd_to_artifacts_dir(sh)?;
 
     let home = std::env::var("HOME")
-        .inspect_err(|e| eprintln!("failed to get HOME variable, using /root: {e}"))
+        .inspect_err(|e| error!("failed to get HOME variable, using /root: {e}"))
         .unwrap_or_else(|_| "/root".to_string());
 
     let state = InstallState {
@@ -132,7 +133,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
     match step {
         XrayInstallStep::DownloadXray => {
             let latest_version = get_latest_xray_version()?;
-            eprintln!("[install] latest version: {}", latest_version.as_prefixed());
+            info!("latest version: {}", latest_version.as_prefixed());
 
             check_requirements(sh, INSTALL_EXE_REQUIRED)?;
             let dl_dir = sh.current_dir().join(latest_version.to_string());
@@ -200,7 +201,7 @@ fn download(sh: &Shell, version: &Version, dl_dir: &Path) -> Result<()> {
     let dgst = std::fs::read_to_string(sh.current_dir().join(format!("{file}.dgst")))
         .context("failed to read .dgst file")?;
     if !dgst.contains(hash) {
-        eprintln!(".dgst file:\n{dgst}");
+        debug!("xray release .dgst file:\n{dgst}");
         bail!("hash check failed, expected sha512 hash not found, hash: {hash}")
     }
 
@@ -221,7 +222,7 @@ fn install_xray(sh: &Shell, dl_dir: &Path) -> Result<()> {
     create_dir(&share)?;
     for file in ["geoip.dat", "geosite.dat"] {
         let source = sh.current_dir().join(file);
-        eprintln!("moving {} to {}", source.display(), share.display());
+        debug!("moving {} to {}", source.display(), share.display());
         std::fs::rename(source, share.join(file))
             .with_context(|| format!("failed to move {file} to {}", share.display()))?;
     }
@@ -242,7 +243,7 @@ fn configure_cert(
 
     #[cfg(feature = "fake-cert")]
     {
-        eprintln!("installing fake cert");
+        debug!("installing fake cert");
         save_config(&cert_dir, "xray.crt", include_str!("../../static/fake.crt"));
         save_config(&cert_dir, "xray.key", include_str!("../../static/fake.key"));
         return Ok(AcmeInstallResult { cert_dir });
@@ -372,7 +373,7 @@ fn start_services(sh: &Shell) -> Result<()> {
 }
 
 fn print_users_links(users: &[Client], domain: &str) {
-    eprintln!("users links:");
+    info!("users links:");
     const NAME: &str = "xray";
     for u in users {
         println!(

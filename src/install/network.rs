@@ -2,6 +2,7 @@ use std::net::IpAddr;
 
 use anyhow::{Context, Result};
 use pnet::datalink;
+use tracing::debug;
 use xshell::{Shell, cmd};
 
 pub fn get_ipv4() -> Result<IpAddr> {
@@ -20,7 +21,7 @@ pub fn get_ipv4() -> Result<IpAddr> {
 }
 
 pub fn open_firewall_ports_and_enable(sh: &Shell, ports: &[u32]) -> Result<()> {
-    eprintln!("\n[config] opening firewall ports");
+    debug!("opening firewall ports");
 
     for port in ports {
         let port = port.to_string();

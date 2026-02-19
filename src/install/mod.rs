@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, anyhow, bail};
 use serde::Serialize;
+use tracing::{debug, error};
 use xshell::{Shell, cmd};
 
 pub mod input;
@@ -13,12 +14,12 @@ pub mod xray_config;
 const ARTIFACTS_DIR: &str = "artifacts";
 
 pub fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
-    println!("[prepare] checking required executables");
+    debug!("checking required executables");
     let mut missed = false;
     for r in bin_reqs {
         if !exe_in_path(sh, r) {
             missed = true;
-            eprintln!("[error] {r} not found");
+            error!("[error] {r} not found");
         }
     }
 
@@ -47,7 +48,7 @@ pub fn create_and_cd_to_artifacts_dir(sh: &Shell) -> Result<()> {
 pub fn create_dir(path: impl AsRef<Path>) -> Result<()> {
     let path = path.as_ref();
     if !path.exists() {
-        eprintln!("creating directory {}", path.display());
+        debug!("creating directory {}", path.display());
         std::fs::create_dir_all(path)
             .with_context(|| format!("failed to create {}", path.display()))?;
     }
@@ -57,7 +58,7 @@ pub fn create_dir(path: impl AsRef<Path>) -> Result<()> {
 pub fn save_config(dir: impl AsRef<Path>, file: &str, text: &str) -> Result<()> {
     let dir = dir.as_ref();
     let path = dir.join(file);
-    eprintln!("writing {}", path.display());
+    debug!("writing {}", path.display());
     std::fs::write(path, text)
         .with_context(|| format!("failed to save {file} to {}", dir.display()))?;
     Ok(())

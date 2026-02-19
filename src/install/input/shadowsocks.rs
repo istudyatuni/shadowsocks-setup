@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::ValueEnum;
 use inquire::{Confirm, CustomType, Select, Text};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 use crate::{args::ShadowsocksInstallArgs, cipher::Cipher, version::Version};
 
@@ -27,7 +28,7 @@ impl Install {
         let mut asker = match DataInput::load_state() {
             Ok(a) => a.update_from_args(args),
             Err(e) => {
-                eprintln!("failed to load input state: {e}");
+                error!("failed to load input state: {e}");
                 DataInput::default().update_from_args(args)
             }
         };
@@ -48,7 +49,7 @@ impl Install {
         asker.ask_cipher()?;
 
         if let Err(e) = DataInput::clean_state() {
-            eprintln!("failed to cleanup input state: {e}");
+            error!("failed to cleanup input state: {e}");
         }
 
         Ok(Install {
@@ -101,7 +102,7 @@ impl DataInput {
             Ok(())
         };
         if let Err(e) = save() {
-            eprintln!("failed to save input state: {e}");
+            error!("failed to save input state: {e}");
         }
     }
     fn clean_state() -> Result<()> {

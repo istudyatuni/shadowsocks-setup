@@ -1,5 +1,7 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use clap::Parser;
+use tracing::Level;
+use tracing_subscriber::FmtSubscriber;
 use xshell::Shell;
 
 use args::{Args, ShadowsocksArgs, XrayArgs};
@@ -25,6 +27,8 @@ fn main() -> Result<()> {
         }
     }
 
+    init_logger()?;
+
     match args {
         Args::Shadowsocks { cmd } => match cmd {
             ShadowsocksArgs::Install(args) => install::shadowsocks::install(&sh, args)?,
@@ -37,5 +41,18 @@ fn main() -> Result<()> {
         },
     }
 
+    Ok(())
+}
+
+fn init_logger() -> Result<()> {
+    tracing::subscriber::set_global_default(
+        FmtSubscriber::builder()
+            .with_max_level(Level::DEBUG)
+            .without_time()
+            .with_file(true)
+            .with_line_number(true)
+            .finish(),
+    )
+    .context("failed to init logging")?;
     Ok(())
 }
