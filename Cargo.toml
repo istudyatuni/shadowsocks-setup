@@ -27,4 +27,7 @@ thiserror = "2.0.17"
 tracing = { version = "0.1.44", features = ["log"] }
 tracing-subscriber = "0.3.22"
 uuid = { version = "1.21.0", features = ["v4"] }
-xshell = "0.2.7"
+xshell = { version = "0.2.7", features = ["color-dollar"] }
+
+[patch.crates-io]
+xshell = { git = "https://github.com/istudyatuni/xshell", branch = "color-dollar" }
