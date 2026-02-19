@@ -44,7 +44,8 @@ pub fn create_and_cd_to_artifacts_dir(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-pub fn create_dir(path: &Path) -> Result<()> {
+pub fn create_dir(path: impl AsRef<Path>) -> Result<()> {
+    let path = path.as_ref();
     if !path.exists() {
         eprintln!("creating directory {}", path.display());
         std::fs::create_dir_all(path)
@@ -53,7 +54,8 @@ pub fn create_dir(path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn save_config(dir: &Path, file: &str, text: &str) -> Result<()> {
+pub fn save_config(dir: impl AsRef<Path>, file: &str, text: &str) -> Result<()> {
+    let dir = dir.as_ref();
     let path = dir.join(file);
     eprintln!("writing {}", path.display());
     std::fs::write(path, text)
@@ -61,13 +63,15 @@ pub fn save_config(dir: &Path, file: &str, text: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn save_json_config<T: Serialize>(dir: &Path, file: &str, data: &T) -> Result<()> {
+pub fn save_json_config<T: Serialize>(dir: impl AsRef<Path>, file: &str, data: &T) -> Result<()> {
+    let dir = dir.as_ref();
     let text = serde_json::to_string_pretty(data)
         .with_context(|| format!("failed to serialize {}", dir.join(file).display()))?;
     save_config(dir, file, &text)
 }
 
-pub fn path_to_str(p: &Path) -> Result<String> {
+pub fn path_to_str(p: impl AsRef<Path>) -> Result<String> {
+    let p = p.as_ref();
     p.to_str()
         .map(ToString::to_string)
         .ok_or_else(|| anyhow!("path {} is not valid utf-8", p.display()))

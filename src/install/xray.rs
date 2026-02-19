@@ -108,7 +108,7 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
         download_dir: None,
         cert_dir: None,
     };
-    save_json_config(&PathBuf::from(STATE_FILE_DIR), STATE_FILE, &state)?;
+    save_json_config(PathBuf::from(STATE_FILE_DIR), STATE_FILE, &state)?;
 
     let self_bin = std::env::current_exe().context("failed to get current exe")?;
     for step in XrayInstallStep::values() {

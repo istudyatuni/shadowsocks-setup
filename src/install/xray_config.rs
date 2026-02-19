@@ -60,8 +60,8 @@ impl XrayConfig {
                         "alpn": "http/1.1",
                         "certificates": [
                             {
-                                "certificateFile": path_to_str(&cert_dir.join("xray.crt"))?,
-                                "keyFile": path_to_str(&cert_dir.join("xray.key"))?,
+                                "certificateFile": path_to_str(cert_dir.join("xray.crt"))?,
+                                "keyFile": path_to_str(cert_dir.join("xray.key"))?,
                             }
                         ]
                     }
