@@ -52,6 +52,14 @@ pub fn create_dir(path: &Path) -> Result<()> {
     Ok(())
 }
 
+pub fn save_config(dir: &Path, file: &str, text: &str) -> Result<()> {
+    let path = dir.join(file);
+    eprintln!("writing {}", path.display());
+    std::fs::write(path, text)
+        .with_context(|| format!("failed to save {file} to {}", dir.display()))?;
+    Ok(())
+}
+
 pub fn path_to_str(p: &Path) -> Result<String> {
     p.to_str()
         .map(ToString::to_string)

@@ -8,7 +8,8 @@ use crate::{
     args::{XrayInstallArgs, XrayInstallStep},
     github::get_latest_release_tag,
     install::{
-        check_requirements, create_and_cd_to_artifacts_dir, network::open_firewall_ports_and_enable,
+        check_requirements, create_and_cd_to_artifacts_dir,
+        network::open_firewall_ports_and_enable, save_config,
     },
     version::Version,
 };
@@ -319,12 +320,7 @@ fn configure(
     };
 
     let save_config = |dir: &Path, file: &str, text: &str| -> Result<()> {
-        let data = replace_vars(text);
-        let path = dir.join(file);
-        eprintln!("writing {}", path.display());
-        std::fs::write(path, data)
-            .with_context(|| format!("failed to save {file} to {}", dir.display()))?;
-        Ok(())
+        save_config(dir, file, &replace_vars(text))
     };
 
     // xray configs
