@@ -4,7 +4,13 @@ Helper to setup proxy on server. Currently it can install [shadowsocks](https://
 
 ## Usage
 
-Download static-linked build from [latest release](https://github.com/istudyatuni/shadowsocks-setup/releases/latest) to the server and unpack
+Download static-linked build from [latest release](https://github.com/istudyatuni/shadowsocks-setup/releases/latest) to the server and unpack:
+
+```sh
+curl -L <url-to-tar.xz>
+tar xf <path-to-tar.xz>
+sudo mv sssetup /usr/local/bin/sssetup
+```
 
 ### Shadowsocks
 
@@ -23,6 +29,8 @@ sssetup ss uninstall
 ```
 
 ### Xray
+
+Before installing you need to add a `A` record for the domain in your DNS hosting
 
 ```bash
 # install xray. these are required options:
