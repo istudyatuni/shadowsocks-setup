@@ -6,6 +6,16 @@ use tracing::error;
 
 pub mod shadowsocks;
 mod validate;
+pub mod xray;
+
+#[macro_export]
+macro_rules! update_from_options {
+    ($($to:expr => $from:expr),* $(,)?) => {$(
+        if let arg @ Some(_) = $from {
+            $to = arg;
+        }
+    )*};
+}
 
 trait SerializableState
 where

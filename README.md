@@ -33,10 +33,11 @@ sssetup ss uninstall
 Before installing you need to add a `A` record for the domain in your DNS hosting
 
 ```bash
-# install xray. these are required options:
-sssetup xray install --domain <domain> --zerossl-email <email>
+# install shadowsocks, input options interactively
+sssetup xray install
 
-# required options are omitted below for brevity
+# pass options from cli
+sssetup xray install --domain <domain> --zerossl-email <email>
 
 # add more users (default: 1)
 sssetup xray install --add-users-count 5

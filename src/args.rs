@@ -69,7 +69,6 @@ pub enum XrayArgs {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Parser)]
-#[clap(arg_required_else_help = true)]
 pub struct XrayInstallArgs {
     /// Enable xray api
     #[arg(long)]
@@ -81,7 +80,7 @@ pub struct XrayInstallArgs {
 
     /// Server domain
     #[arg(long)]
-    pub domain: String,
+    pub domain: Option<String>,
 
     /// URL to renew domain
     #[arg(long)]
@@ -90,7 +89,7 @@ pub struct XrayInstallArgs {
     /// Email for zerossl account
     // todo: check if this is optional
     #[arg(long)]
-    pub zerossl_email: String,
+    pub zerossl_email: Option<String>,
 
     /// Number of new users to add to config. Ignored when --add-user-id is used
     #[arg(long, default_value_t = 1)]

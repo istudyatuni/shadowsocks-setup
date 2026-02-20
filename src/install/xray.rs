@@ -16,7 +16,9 @@ use crate::{
 };
 
 use super::{
-    create_dir, save_json_config,
+    create_dir,
+    input::xray::Install,
+    save_json_config,
     xray_config::{Client, XrayConfig},
 };
 
@@ -103,7 +105,7 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
         .unwrap_or_else(|_| "/root".to_string());
 
     let state = InstallState {
-        args,
+        args: Install::ask(args)?,
         home_dir: PathBuf::from(&home),
         home_dir_str: home,
         download_dir: None,
@@ -233,11 +235,7 @@ fn install_xray(sh: &Shell, dl_dir: &Path) -> Result<()> {
 }
 
 #[cfg_attr(feature = "fake-cert", expect(unused))]
-fn configure_cert(
-    sh: &Shell,
-    args: &XrayInstallArgs,
-    home_dir: &Path,
-) -> Result<AcmeInstallResult> {
+fn configure_cert(sh: &Shell, args: &Install, home_dir: &Path) -> Result<AcmeInstallResult> {
     let cert_dir = home_dir.join("xray-cert");
     create_dir(&cert_dir)?;
 
@@ -285,7 +283,7 @@ fn configure_cert(
 }
 
 fn configure(
-    args: &XrayInstallArgs,
+    args: &Install,
     users_config: &mut XrayConfig,
     cert_dir: &Path,
     home: &str,
@@ -389,7 +387,7 @@ fn download_url(version: &Version) -> String {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct InstallState {
-    args: XrayInstallArgs,
+    args: Install,
     home_dir: PathBuf,
     home_dir_str: String,
     download_dir: Option<PathBuf>,
