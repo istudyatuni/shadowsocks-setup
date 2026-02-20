@@ -1,6 +1,8 @@
+use std::io::Write;
+
 use inquire::{Confirm, CustomType, Editor, Text};
 use serde::{Deserialize, Serialize};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{args::XrayInstallArgs, update_from_options};
 
@@ -131,6 +133,8 @@ impl DataInput {
             self.domain_renew_url = Some(res);
         } else {
             self.domain_renew_url = None;
+            warn!("cron job for domain renew won't be created");
+            Self::fix_terminal_after_log()?;
         }
         self.save_state();
         Ok(())
@@ -166,7 +170,16 @@ impl DataInput {
             .with_predefined_text(ADD_USERS_DEFAULT_FILE.trim_start())
             .prompt()?;
         self.add_user_ids = parse_add_users_file(&text);
+        if self.add_user_ids.is_empty() {
+            warn!("no users added");
+            Self::fix_terminal_after_log()?;
+        }
         self.save_state();
+        Ok(())
+    }
+    fn fix_terminal_after_log() -> Result<()> {
+        eprint!("\r");
+        std::io::stderr().flush()?;
         Ok(())
     }
 }
