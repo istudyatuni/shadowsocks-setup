@@ -265,6 +265,7 @@ fn configure_cert(sh: &Shell, args: &Install, home_dir: &Path) -> Result<AcmeIns
 
     cmd!(sh, "{acme_bin} --set-default-ca --server zerossl").run()?;
     let email = &args.zerossl_email;
+    // --output-insecure to see errors in responses
     cmd!(
         sh,
         "{acme_bin} --register-account -m {email} --debug 2 --output-insecure"
