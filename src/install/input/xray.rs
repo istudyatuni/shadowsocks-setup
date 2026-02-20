@@ -159,15 +159,22 @@ impl DataInput {
         Ok(())
     }
     fn ask_add_users_ids(&mut self) -> Result<()> {
+        let help = if self.add_user_ids.is_empty() {
+            "You can skip this step and set how many users to add later".to_string()
+        } else {
+            format!("Already specified users: {}", self.add_user_ids.len())
+        };
         let add_users = Confirm::new("Add users by uuid? This will open an editor")
-            .with_help_message("You can skip this step and set how many users to add later")
+            .with_help_message(&help)
             .with_default(false)
             .prompt()?;
         if !add_users {
             return Ok(());
         }
+        let initial_text =
+            ADD_USERS_DEFAULT_FILE.trim_start().to_string() + &self.add_user_ids.join("\n") + "\n";
         let text = Editor::new("Add users")
-            .with_predefined_text(ADD_USERS_DEFAULT_FILE.trim_start())
+            .with_predefined_text(&initial_text)
             .prompt()?;
         self.add_user_ids = parse_add_users_file(&text);
         if self.add_user_ids.is_empty() {
