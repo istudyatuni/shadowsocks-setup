@@ -1,11 +1,11 @@
-use std::path::PathBuf;
-
 use clap::ValueEnum;
 use inquire::{Confirm, CustomType, Select, Text};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
 use crate::{args::ShadowsocksInstallArgs, cipher::Cipher, version::Version};
+
+use super::SerializableState;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -85,30 +85,11 @@ struct DataInput {
     version: Option<Version>,
 }
 
-impl DataInput {
-    fn load_state() -> Result<Self> {
-        let path = PathBuf::from(TEMP_PATH);
-        if !path.exists() {
-            return Ok(Self::default());
-        }
+impl SerializableState for DataInput {
+    const TEMP_PATH: &str = TEMP_PATH;
+}
 
-        let s = std::fs::read_to_string(path)?;
-        Ok(serde_json::from_str(&s)?)
-    }
-    fn save_state(&self) {
-        let save = || -> Result<()> {
-            let s = serde_json::to_string_pretty(self)?;
-            std::fs::write(TEMP_PATH, s)?;
-            Ok(())
-        };
-        if let Err(e) = save() {
-            error!("failed to save input state: {e}");
-        }
-    }
-    fn clean_state() -> Result<()> {
-        std::fs::remove_file(TEMP_PATH)?;
-        Ok(())
-    }
+impl DataInput {
     fn update_from_args(mut self, args: ShadowsocksInstallArgs) -> Self {
         if let port @ Some(_) = args.port {
             self.server_port = port;
