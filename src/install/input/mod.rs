@@ -46,7 +46,9 @@ where
     }
 
     fn clean_state() -> Result<()> {
-        std::fs::remove_file(Self::TEMP_PATH)?;
+        if PathBuf::from(Self::TEMP_PATH).exists() {
+            std::fs::remove_file(Self::TEMP_PATH)?;
+        }
         Ok(())
     }
 }
