@@ -3,7 +3,7 @@ use inquire::{Confirm, CustomType, Select, Text};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
-use crate::{args::ShadowsocksInstallArgs, cipher::Cipher, version::Version};
+use crate::{args::ShadowsocksInstallArgs, cipher::Cipher, update_from_options, version::Version};
 
 use super::SerializableState;
 
@@ -91,18 +91,12 @@ impl SerializableState for DataInput {
 
 impl DataInput {
     fn update_from_args(mut self, args: ShadowsocksInstallArgs) -> Self {
-        if let port @ Some(_) = args.port {
-            self.server_port = port;
-        }
-        if let password @ Some(_) = args.password {
-            self.server_password = password;
-        }
-        if let cipher @ Some(_) = args.cipher {
-            self.cipher = cipher;
-        }
-        if let version @ Some(_) = args.version {
-            self.version = version;
-        }
+        update_from_options!(
+            self.server_port => args.port,
+            self.server_password => args.password,
+            self.cipher => args.cipher,
+            self.version => args.version,
+        );
         self
     }
     fn ask_server_port(&mut self) -> Result<()> {
