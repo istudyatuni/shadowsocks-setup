@@ -87,7 +87,6 @@ pub struct XrayInstallArgs {
     pub domain_renew_url: Option<String>,
 
     /// Email for zerossl account
-    // todo: check if this is optional
     #[arg(long)]
     pub zerossl_email: Option<String>,
 
