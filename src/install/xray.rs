@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use xshell::{Shell, cmd};
 
 use crate::{
@@ -380,7 +380,11 @@ fn print_users_links(users_links_file_dir: &Path, users: &[Client], domain: &str
         )
     };
     let links = users.iter().map(url_fmt).collect::<Vec<_>>().join("\n");
-    println!("{links}");
+    if users.len() < 200 {
+        println!("{links}");
+    } else {
+        warn!("number of users are too big, writing only to file");
+    }
 
     const FILE: &str = "users-vless-links.txt";
     save_config(users_links_file_dir, FILE, &links)?;
