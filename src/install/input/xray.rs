@@ -92,9 +92,9 @@ impl DataInput {
         self.add_users_count = args.add_users_count;
         self.add_user_ids = args.add_user_ids;
         update_from_options!(
-            self.domain => args.domain,
-            self.domain_renew_url => args.domain_renew_url,
-            self.zerossl_email => args.zerossl_email,
+            (self.domain) = args.domain,
+            (self.domain_renew_url) = args.domain_renew_url,
+            (self.zerossl_email) = args.zerossl_email,
         );
 
         self

@@ -8,9 +8,10 @@ pub mod shadowsocks;
 mod validate;
 pub mod xray;
 
+/// `()` are used to use `=` instead of `=>`
 #[macro_export]
 macro_rules! update_from_options {
-    ($($to:expr => $from:expr),* $(,)?) => {$(
+    ($(($to:expr) = $from:expr),* $(,)?) => {$(
         if let arg @ Some(_) = $from {
             $to = arg;
         }

@@ -92,10 +92,10 @@ impl SerializableState for DataInput {
 impl DataInput {
     fn update_from_args(mut self, args: ShadowsocksInstallArgs) -> Self {
         update_from_options!(
-            self.server_port => args.port,
-            self.server_password => args.password,
-            self.cipher => args.cipher,
-            self.version => args.version,
+            (self.server_port) = args.port,
+            (self.server_password) = args.password,
+            (self.cipher) = args.cipher,
+            (self.version) = args.version,
         );
         self
     }
