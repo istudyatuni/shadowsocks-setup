@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::install::path_to_str;
+use crate::install::{path_to_str, xray::vars::VLESS_INBOUND_TAG};
 
 #[derive(Debug, Serialize)]
 pub struct XrayConfig {
@@ -42,7 +42,7 @@ pub struct Client {
 impl XrayConfig {
     pub fn new(cert_dir: &Path) -> Result<Self> {
         let vless_inbound_rule = InboundConfig {
-            tag: "vless".to_string(),
+            tag: VLESS_INBOUND_TAG.to_string(),
             settings: InboundConfigSettings {
                 clients: vec![],
                 rest: json!({

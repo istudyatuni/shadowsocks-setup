@@ -51,7 +51,7 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 const STATE_FILE_DIR: &str = "/tmp";
 const STATE_FILE: &str = "xray-install-state.json";
 
-mod vars {
+pub mod vars {
     macro_rules! vars {
         ($($var:ident),* $(,)?) => {
             $(
