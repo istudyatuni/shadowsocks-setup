@@ -1518,7 +1518,7 @@ dependencies = [
 
 [[package]]
 name = "shadowsocks-setup"
-version = "0.2.0-pre.1"
+version = "0.2.0-pre.2"
 dependencies = [
  "anyhow",
  "clap",

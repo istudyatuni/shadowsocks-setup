@@ -1,5 +1,11 @@
 ## Unreleased
 
+## 0.2.0-pre.2 (2026-02-21)
+
+### Features
+
+- Support interactive input for xray install
+
 ## 0.2.0-pre.1 (2026-02-18)
 
 ### Features
