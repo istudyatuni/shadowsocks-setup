@@ -24,7 +24,7 @@ pub fn check_requirements(sh: &Shell, bin_reqs: &[&str]) -> Result<()> {
     }
 
     if missed {
-        bail!("some required executables is not found")
+        bail!("some required executables are not found. install them with your package manager")
     }
 
     Ok(())
