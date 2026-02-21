@@ -31,6 +31,7 @@ pub struct Install {
 
 impl Install {
     pub fn ask(args: XrayInstallArgs) -> Result<Self> {
+        let should_ask = !args.no_interactive;
         let mut asker = match DataInput::load_state() {
             Ok(a) => a.update_from_args(args),
             Err(e) => {
@@ -39,24 +40,34 @@ impl Install {
             }
         };
 
-        asker.ask_api()?;
-        if asker.api {
-            asker.ask_api_port()?;
+        if should_ask {
+            asker.ask_api()?;
+            if asker.api {
+                asker.ask_api_port()?;
+            }
+            asker.ask_domain()?;
+            asker.ask_domain_renew_url()?;
+            asker.ask_zerossl_email()?;
+            // should be before ask_add_users_count
+            asker.ask_add_users_ids()?;
+            asker.ask_add_users_count()?;
         }
-        asker.ask_domain()?;
-        asker.ask_domain_renew_url()?;
-        asker.ask_zerossl_email()?;
-        // should be before ask_add_users_count
-        asker.ask_add_users_ids()?;
-        asker.ask_add_users_count()?;
 
         let res = Install {
+            // before other fields because get_default_add_users_count borrows asker
+            add_users_count: asker
+                .add_users_count
+                .unwrap_or_else(|| asker.get_default_add_users_count()),
+
             api: asker.api,
             api_port: asker.api_port,
-            domain: asker.domain.expect("should be asked"),
+            domain: asker
+                .domain
+                .ok_or_else(|| Error::incomplete_input("domain"))?,
             domain_renew_url: asker.domain_renew_url,
-            zerossl_email: asker.zerossl_email.expect("should be asked"),
-            add_users_count: asker.add_users_count.expect("should be asked"),
+            zerossl_email: asker
+                .zerossl_email
+                .ok_or_else(|| Error::incomplete_input("zerossl-email"))?,
             add_user_ids: asker.add_user_ids,
         };
 
@@ -148,14 +159,17 @@ impl DataInput {
         self.save_state();
         Ok(())
     }
-    fn ask_add_users_count(&mut self) -> Result<()> {
+    fn get_default_add_users_count(&self) -> usize {
         // if any user id is set, use 0
         // otherwise, use specified value or fallback to 1
-        let default = if self.add_user_ids.is_empty() {
+        if self.add_user_ids.is_empty() {
             self.add_users_count.unwrap_or(1)
         } else {
             0
-        };
+        }
+    }
+    fn ask_add_users_count(&mut self) -> Result<()> {
+        let default = self.get_default_add_users_count();
         self.add_users_count = Some(
             CustomType::<usize>::new("How many users to add")
                 .with_starting_input(&default.to_string())
@@ -200,12 +214,21 @@ impl DataInput {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("{0} is required")]
+    IncompleteInput(String),
+
     #[error("{0}")]
     Inquire(#[from] inquire::error::InquireError),
     #[error("{0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Json(#[from] serde_json::Error),
+}
+
+impl Error {
+    fn incomplete_input(arg: &str) -> Self {
+        Self::IncompleteInput(arg.to_string())
+    }
 }
 
 fn parse_add_users_file(text: &str) -> Vec<String> {

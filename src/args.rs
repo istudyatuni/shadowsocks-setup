@@ -98,6 +98,10 @@ pub struct XrayInstallArgs {
     /// UUIDs of new users to add to config. Can be repeated or separated with ","
     #[arg(long = "add-user-id", value_delimiter = ',')]
     pub add_user_ids: Vec<String>,
+
+    /// Do not ask interactive questions, use values from CLI args
+    #[arg(long)]
+    pub no_interactive: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
