@@ -164,7 +164,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
             let mut users_config = XrayConfig::new(cert_dir)?;
             configure(args, &mut users_config, cert_dir, &state.home_dir_str)?;
             start_services(sh)?;
-            print_users_links(users_config.users(), &args.domain);
+            print_users_links(&state.home_dir, users_config.users(), &args.domain)?;
         }
     }
 
@@ -371,15 +371,26 @@ fn start_services(sh: &Shell) -> Result<()> {
     Ok(())
 }
 
-fn print_users_links(users: &[Client], domain: &str) {
+fn print_users_links(users_links_file_dir: &Path, users: &[Client], domain: &str) -> Result<()> {
     info!("users links:");
     const NAME: &str = "xray";
-    for u in users {
-        println!(
+    let url_fmt = |u: &Client| {
+        format!(
             "vless://{}@{domain}:443/?type=tcp&encryption=none&flow=xtls-rprx-vision&security=tls&fp=chrome#{NAME}",
             u.id
-        );
-    }
+        )
+    };
+    let links = users.iter().map(url_fmt).collect::<Vec<_>>().join("\n");
+    println!("{links}");
+
+    const FILE: &str = "users-vless-links.txt";
+    save_config(users_links_file_dir, FILE, &links)?;
+    info!(
+        "users links are also saved to {}",
+        users_links_file_dir.join(FILE).display()
+    );
+
+    Ok(())
 }
 
 fn download_url(version: &Version) -> String {
