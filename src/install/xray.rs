@@ -333,9 +333,8 @@ fn configure(
         for id in &args.add_user_ids {
             users_config.add_user_with_id(id);
         }
-    } else {
-        users_config.add_users(args.add_users_count);
     }
+    users_config.add_users(args.add_users_count);
     save_json_config(&etc, "05_main.json", users_config)?;
     drop(etc);
 

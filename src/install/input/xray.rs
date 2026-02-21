@@ -48,9 +48,7 @@ impl Install {
         asker.ask_zerossl_email()?;
         // should be before ask_add_users_count
         asker.ask_add_users_ids()?;
-        if asker.add_user_ids.is_empty() {
-            asker.ask_add_users_count()?;
-        }
+        asker.ask_add_users_count()?;
 
         let res = Install {
             api: asker.api,
@@ -58,7 +56,7 @@ impl Install {
             domain: asker.domain.expect("should be asked"),
             domain_renew_url: asker.domain_renew_url,
             zerossl_email: asker.zerossl_email.expect("should be asked"),
-            add_users_count: asker.add_users_count,
+            add_users_count: asker.add_users_count.expect("should be asked"),
             add_user_ids: asker.add_user_ids,
         };
 
@@ -77,7 +75,7 @@ struct DataInput {
     domain: Option<String>,
     domain_renew_url: Option<String>,
     zerossl_email: Option<String>,
-    add_users_count: usize,
+    add_users_count: Option<usize>,
     add_user_ids: Vec<String>,
 }
 
@@ -89,12 +87,12 @@ impl DataInput {
     fn update_from_args(mut self, args: XrayInstallArgs) -> Self {
         self.api = args.api;
         self.api_port = args.api_port;
-        self.add_users_count = args.add_users_count;
         self.add_user_ids = args.add_user_ids;
         update_from_options!(
             (self.domain) = args.domain,
             (self.domain_renew_url) = args.domain_renew_url,
             (self.zerossl_email) = args.zerossl_email,
+            (self.add_users_count) = args.add_users_count,
         );
 
         self
@@ -151,10 +149,19 @@ impl DataInput {
         Ok(())
     }
     fn ask_add_users_count(&mut self) -> Result<()> {
-        self.add_users_count = CustomType::<usize>::new("How many users to add")
-            .with_starting_input(&self.add_users_count.to_string())
-            .with_error_message("Invalid number")
-            .prompt()?;
+        // if any user id is set, use 0
+        // otherwise, use specified value or fallback to 1
+        let default = if self.add_user_ids.is_empty() {
+            self.add_users_count.unwrap_or(1)
+        } else {
+            0
+        };
+        self.add_users_count = Some(
+            CustomType::<usize>::new("How many users to add")
+                .with_starting_input(&default.to_string())
+                .with_error_message("Invalid number")
+                .prompt()?,
+        );
         self.save_state();
         Ok(())
     }

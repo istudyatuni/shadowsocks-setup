@@ -91,9 +91,9 @@ pub struct XrayInstallArgs {
     #[arg(long)]
     pub zerossl_email: Option<String>,
 
-    /// Number of new users to add to config. Ignored when --add-user-id is used
-    #[arg(long, default_value_t = 1)]
-    pub add_users_count: usize,
+    /// Number of new users to add to config. Default 1 (when --add-user-id is NOT set), 0 otherwise
+    #[arg(long)]
+    pub add_users_count: Option<usize>,
 
     /// UUIDs of new users to add to config. Can be repeated or separated with ","
     #[arg(long = "add-user-id", value_delimiter = ',')]
