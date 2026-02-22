@@ -10,12 +10,15 @@ build-ci: build-static-in-docker && pack-release
 	sudo chown -R $(whoami) target
 
 # build static binary
-build-static: test
-	nix build
+build-static: test build-static-in-docker
+build-static-fake-cert: test gen-fake-cert (build-static-in-docker "--features=fake-cert")
 
-build-docker: test
+build-nix-docker: test
 	nix build '.#docker'
 	docker load -i result
+
+build-nix-fake-cert:
+	nix build '.#rustFakeCert'
 
 test:
 	cargo test
@@ -56,9 +59,6 @@ pack-release:
 [no-cd]
 get-build-version exe:
 	"{{exe}}" -V | awk -F ' ' '{ print $2 }'
-
-build-fake-cert:
-	nix build '.#rustFakeCert'
 
 gen-fake-cert domain="localhost":
 	openssl req \
