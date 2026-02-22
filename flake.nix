@@ -1,10 +1,12 @@
-# inspired by https://shivjm.blog/perfect-docker-images-for-rust-with-nix/
+# mainly inspired by https://shivjm.blog/perfect-docker-images-for-rust-with-nix/
+#
+# static toolchain inspired by https://github.com/nix-community/fenix/issues/95#issuecomment-1444255098
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
+    fenix = {
+      url = "github:nix-community/fenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -13,23 +15,37 @@
     self,
     nixpkgs,
     flake-utils,
-    rust-overlay,
+    fenix,
   }:
-    flake-utils.lib.eachSystem ["x86_64-linux"] (
+    flake-utils.lib.eachDefaultSystem (
       system: let
-        overlays = [(import rust-overlay)];
-        pkgs = import nixpkgs {inherit system overlays;};
+        pkgs = (import nixpkgs {inherit system;}).pkgsStatic;
         lib = pkgs.lib;
-        rustVersion = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+
+        target = pkgs.stdenv.targetPlatform.rust.rustcTargetSpec;
+        toolchain = with fenix.packages.${system};
+          combine [
+            stable.rustc
+            stable.cargo
+            targets."${target}".stable.rust-std
+          ];
         rustPlatform = pkgs.makeRustPlatform {
-          cargo = rustVersion;
-          rustc = rustVersion;
+          cargo = toolchain;
+          rustc = toolchain;
         };
 
         meta = fromTOML (builtins.readFile ./Cargo.toml);
-        appRustBuild = rustPlatform.buildRustPackage {
-          pname = meta.package.name;
-          version = meta.package.version;
+        info =
+          meta.package
+          // {
+            bin.name =
+              if lib.hasAttr "bin" meta
+              then (lib.elemAt meta.bin 0).name
+              else meta.package.name;
+          };
+        rustApp = rustPlatform.buildRustPackage {
+          pname = info.name;
+          version = info.version;
           src = ./.;
           cargoLock = {
             lockFile = ./Cargo.lock;
@@ -38,24 +54,22 @@
               "xshell-0.2.7" = "sha256-CX+MM2QxuPJpqYHYdNtF+Y2I5femrhFpXeZKDEDRQYQ=";
             };
           };
-          meta.mainProgram = (lib.elemAt meta.bin 0).name;
+          meta.mainProgram = info.bin.name;
         };
 
         dockerImage = pkgs.dockerTools.buildImage {
-          name = meta.package.name;
+          name = info.bin.name;
+          tag = info.version;
           config = {
-            Entrypoint = [(lib.getExe appRustBuild)];
+            Entrypoint = [(lib.getExe rustApp)];
           };
         };
       in {
         packages = {
-          rustPackage = appRustBuild;
+          rust = rustApp;
           docker = dockerImage;
         };
-        defaultPackage = dockerImage;
-        devShell = pkgs.mkShell {
-          buildInputs = [(rustVersion.override {extensions = ["rust-src"];})];
-        };
+        defaultPackage = rustApp;
       }
     );
 }

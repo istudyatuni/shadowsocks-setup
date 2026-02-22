@@ -1,3 +1,6 @@
 /target
 /static/fake.crt
 /static/fake.key
+
+# after nix build
+/result
