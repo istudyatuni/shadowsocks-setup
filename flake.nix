@@ -78,6 +78,12 @@
           docker = dockerImage;
         };
         defaultPackage = rustApp {};
+        devShells.default = pkgs.mkShell {
+          nativeBuildInputs = with pkgs; [
+            openssl
+            toml-cli
+          ];
+        };
       }
     );
 }
