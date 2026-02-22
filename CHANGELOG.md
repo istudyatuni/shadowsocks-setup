@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 0.2.0-pre.3 (2026-02-22)
+
 ### Features
 
 - Users connect links are also written to a file
