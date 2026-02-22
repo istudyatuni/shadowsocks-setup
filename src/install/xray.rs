@@ -35,7 +35,7 @@ const XRAY_ETC_DIR: &str = "/usr/local/etc/xray";
 const XRAY_SHARE_DIR: &str = "/usr/local/share/xray";
 const XRAY_BIN: &str = "/usr/local/bin/xray";
 
-const VLESS_INBOUND_TAG: &str = "vless";
+pub const VLESS_INBOUND_TAG: &str = "vless";
 
 const INSTALL_EXE_REQUIRED: &[&str] = &[
     "chmod",
@@ -51,7 +51,7 @@ const INSTALL_EXE_REQUIRED: &[&str] = &[
 const STATE_FILE_DIR: &str = "/tmp";
 const STATE_FILE: &str = "xray-install-state.json";
 
-pub mod vars {
+mod vars {
     macro_rules! vars {
         ($($var:ident),* $(,)?) => {
             $(

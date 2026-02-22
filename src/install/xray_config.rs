@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::install::{path_to_str, xray::vars::VLESS_INBOUND_TAG};
+use crate::install::{path_to_str, xray::VLESS_INBOUND_TAG};
 
 #[derive(Debug, Serialize)]
 pub struct XrayConfig {
