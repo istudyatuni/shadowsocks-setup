@@ -48,7 +48,8 @@ pack-release:
 get-build-version exe:
 	"{{exe}}" -V | awk -F ' ' '{ print $2 }'
 
-build-fake-cert domain="localhost": (gen-fake-cert domain) (build-static-in-docker "--features=fake-cert")
+build-fake-cert:
+	nix build '.#rustFakeCert'
 
 gen-fake-cert domain="localhost":
 	openssl req \

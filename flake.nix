@@ -19,17 +19,17 @@
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
-        pkgs = (import nixpkgs {inherit system;}).pkgsStatic;
+        pkgs = import nixpkgs {inherit system;};
         lib = pkgs.lib;
 
-        target = pkgs.stdenv.targetPlatform.rust.rustcTargetSpec;
+        target = pkgs.pkgsStatic.stdenv.targetPlatform.rust.rustcTargetSpec;
         toolchain = with fenix.packages.${system};
           combine [
             stable.rustc
             stable.cargo
             targets."${target}".stable.rust-std
           ];
-        rustPlatform = pkgs.makeRustPlatform {
+        rustPlatform = pkgs.pkgsStatic.makeRustPlatform {
           cargo = toolchain;
           rustc = toolchain;
         };
@@ -43,33 +43,41 @@
               then (lib.elemAt meta.bin 0).name
               else meta.package.name;
           };
-        rustApp = rustPlatform.buildRustPackage {
-          pname = info.name;
-          version = info.version;
-          src = ./.;
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-            # git dependencies should be specified here
-            outputHashes = {
-              "xshell-0.2.7" = "sha256-CX+MM2QxuPJpqYHYdNtF+Y2I5femrhFpXeZKDEDRQYQ=";
-            };
-          };
-          meta.mainProgram = info.bin.name;
-        };
+        rustApp = {...} @ args:
+          rustPlatform.buildRustPackage ({
+              pname = info.name;
+              version = info.version;
+              src = ./.;
+              cargoLock = {
+                lockFile = ./Cargo.lock;
+                # git dependencies should be specified here
+                outputHashes = {
+                  "xshell-0.2.7" = "sha256-CX+MM2QxuPJpqYHYdNtF+Y2I5femrhFpXeZKDEDRQYQ=";
+                };
+              };
+              meta.mainProgram = info.bin.name;
+            }
+            // args);
 
         dockerImage = pkgs.dockerTools.buildImage {
           name = info.bin.name;
           tag = info.version;
           config = {
-            Entrypoint = [(lib.getExe rustApp)];
+            Entrypoint = [(lib.getExe (rustApp {}))];
           };
         };
       in {
         packages = {
-          rust = rustApp;
+          rust = rustApp {};
+          rustFakeCert = rustApp {
+            buildFeatures = ["fake-cert"];
+            # when just is added here it's used as build tool, e.g, for "just install"
+            nativeBuildInputs = with pkgs; [openssl];
+            preBuild = "${lib.getExe pkgs.just} gen-fake-cert";
+          };
           docker = dockerImage;
         };
-        defaultPackage = rustApp;
+        defaultPackage = rustApp {};
       }
     );
 }
