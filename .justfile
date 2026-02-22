@@ -32,7 +32,7 @@ build-static-in-docker *args: test
 		-v "$HOME/.cargo":/tmp/.cargo \
 		-w /build \
 		--env=CARGO_HOME=/tmp/.cargo \
-		ghcr.io/rust-cross/rust-musl-cross:x86_64-musl \
+		clux/muslrust \
 		cargo build --release \
 			--target={{ target }} \
 			--config build.rustc-wrapper="''" \
