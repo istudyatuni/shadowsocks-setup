@@ -15,7 +15,7 @@ build-static: test
 
 build-docker: test
 	nix build '.#docker'
-	docker load -i "$(realpath result)"
+	docker load -i result
 
 test:
 	cargo test
