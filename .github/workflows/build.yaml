@@ -29,3 +29,4 @@ jobs:
         with:
           body_path: ${{ github.workspace }}-CHANGELOG.md
           files: target/*.tar.xz
+          prerelease: ${{ contains(github.ref, '-pre') }}
