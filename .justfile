@@ -24,6 +24,15 @@ extract-changelog file:
 	@# about sed: https://askubuntu.com/a/849016
 	sed -n "/^## $(just get-build-version ./target/sssetup)/,/^## /p" CHANGELOG.md | grep -v '^## ' > "{{ file }}"
 
+release version: test
+	sed -i "s/\(^## Unreleased\)/\1\n\n## {{ version }} ($(date +'%F'))/g" CHANGELOG.md
+	toml set Cargo.toml package.version '{{ version }}' > target/cargo.toml
+	mv target/cargo.toml Cargo.toml
+	cargo c
+	jj new
+	jj desc -r @- -m 'chore: release {{ version }}'
+	jj tag set -r @- 'v{{ version }}'
+
 [private]
 build-static-in-docker *args: test
 	@# CARGO_HOME and /tmp/.cargo is used to use local cargo download cache
