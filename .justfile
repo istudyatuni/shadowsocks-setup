@@ -4,13 +4,15 @@ target := "x86_64-unknown-linux-musl"
 @default:
 	just --list --unsorted
 
-# build static binary in ci
-build-ci: build-static-in-docker && pack-release
-	@# fix permissions after building with docker
-	sudo chown -R $(whoami) target
+# build static binary in ci and create archive
+# tests are not called because "nix build" runs tests
+build-ci: build-static pack-nix-build
 
 # build static binary
-build-static: test
+build: test build-static
+
+[private]
+build-static:
 	nix build
 
 build-docker: test
@@ -22,7 +24,7 @@ test:
 
 extract-changelog file:
 	@# about sed: https://askubuntu.com/a/849016
-	sed -n "/^## $(just get-build-version ./target/sssetup)/,/^## /p" CHANGELOG.md | grep -v '^## ' > "{{ file }}"
+	sed -n "/^## $(just get-build-version ./sssetup)/,/^## /p" CHANGELOG.md | grep -v '^## ' > "{{ file }}"
 
 [private]
 build-static-in-docker *args: test
@@ -39,9 +41,9 @@ build-static-in-docker *args: test
 			{{ args }}
 
 [private]
-pack-release:
-	mv target/{{ target }}/release/sssetup target | :
-	cd target && tar caf "sssetup-v$(just get-build-version ./sssetup).tar.xz" sssetup
+pack-nix-build:
+	cp result/bin/sssetup .
+	tar caf "sssetup-v$(just get-build-version ./sssetup).tar.xz" sssetup
 
 [private]
 [no-cd]
