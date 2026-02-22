@@ -1,5 +1,12 @@
 ## Unreleased
 
+### Features
+
+- Users connect links are also written to a file
+- Users connect links are not printed if there are too many of them
+- `--add-users-count` are used even when `--add-user-id` is provided
+- Interactive input can be disabled
+
 ## 0.2.0-pre.2 (2026-02-21)
 
 ### Features
