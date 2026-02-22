@@ -5,12 +5,17 @@ target := "x86_64-unknown-linux-musl"
 	just --list --unsorted
 
 # build static binary in ci
-build-ci: build-static && pack-release
+build-ci: build-static-in-docker && pack-release
 	@# fix permissions after building with docker
 	sudo chown -R $(whoami) target
 
 # build static binary
-build: build-static pack-release
+build-static: test
+	nix build
+
+build-docker: test
+	nix build '.#docker'
+	docker load -i "$(realpath result)"
 
 test:
 	cargo test
@@ -20,7 +25,7 @@ extract-changelog file:
 	sed -n "/^## $(just get-build-version ./target/sssetup)/,/^## /p" CHANGELOG.md | grep -v '^## ' > "{{ file }}"
 
 [private]
-build-static *args: test
+build-static-in-docker *args: test
 	@# CARGO_HOME and /tmp/.cargo is used to use local cargo download cache
 	docker run --rm \
 		-v "$(pwd)":/build \
@@ -43,7 +48,7 @@ pack-release:
 get-build-version exe:
 	"{{exe}}" -V | awk -F ' ' '{ print $2 }'
 
-build-fake-cert domain="localhost": (gen-fake-cert domain) (build-static "--features=fake-cert")
+build-fake-cert domain="localhost": (gen-fake-cert domain) (build-static-in-docker "--features=fake-cert")
 
 gen-fake-cert domain="localhost":
 	openssl req \
