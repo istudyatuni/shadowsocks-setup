@@ -84,6 +84,7 @@
             toml-cli
           ];
         };
+        formatter = pkgs.writeShellScriptBin "alejandra" "exec ${lib.getExe pkgs.alejandra} .";
       }
     );
 }
