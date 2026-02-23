@@ -66,7 +66,7 @@
             Entrypoint = [(lib.getExe (rustApp {}))];
           };
         };
-      in {
+      in rec {
         packages = {
           rust = rustApp {};
           rustFakeCert = rustApp {
@@ -77,7 +77,7 @@
           };
           docker = dockerImage;
         };
-        defaultPackage = rustApp {};
+        defaultPackage = packages.rust;
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
             openssl
