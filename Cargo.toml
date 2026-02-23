@@ -29,5 +29,8 @@ tracing-subscriber = "0.3.22"
 uuid = { version = "1.21.0", features = ["v4"] }
 xshell = { version = "0.2.7", features = ["color-dollar"] }
 
+[target.'cfg(target_env = "musl")'.dependencies.tikv-jemallocator]
+version = "0.6.1"
+
 [patch.crates-io]
 xshell = { git = "https://github.com/istudyatuni/xshell", branch = "color-dollar" }
