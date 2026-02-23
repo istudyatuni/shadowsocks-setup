@@ -36,6 +36,8 @@ struct InboundConfigSettings {
 #[derive(Debug, Serialize)]
 pub struct Client {
     pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    email: Option<String>,
     flow: String,
 }
 
@@ -100,6 +102,7 @@ impl XrayConfig {
     pub fn add_user_with_id(&mut self, id: &str) -> &mut Self {
         self.users_mut().push(Client {
             id: id.to_string(),
+            email: Some(id.to_string()),
             flow: "xtls-rprx-vision".to_string(),
         });
         self
