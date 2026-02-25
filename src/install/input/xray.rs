@@ -18,7 +18,7 @@ const ADD_USERS_DEFAULT_FILE: &str = r##"
 # Lines starting with "#" are ignored
 "##;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Install {
     pub api: bool,
     pub api_port: u32,
@@ -30,13 +30,18 @@ pub struct Install {
 }
 
 impl Install {
-    pub fn ask(args: XrayInstallArgs) -> Result<Self> {
-        let should_ask = !args.no_interactive;
+    pub fn ask(cli_args: XrayInstallArgs, saved_args: Option<&Self>) -> Result<Self> {
+        let should_ask = !cli_args.no_interactive;
         let mut asker = match DataInput::load_state() {
-            Ok(a) => a.update_from_args(args),
+            Ok(a) => if let Some(saved) = saved_args.cloned() {
+                a.update_from_saved_args(saved)
+            } else {
+                a
+            }
+            .update_from_args(cli_args),
             Err(e) => {
                 error!("failed to load input state: {e}");
-                DataInput::default().update_from_args(args)
+                DataInput::default().update_from_args(cli_args)
             }
         };
 
@@ -105,6 +110,17 @@ impl DataInput {
             (self.zerossl_email) = args.zerossl_email,
             (self.add_users_count) = args.add_users_count,
         );
+
+        self
+    }
+    fn update_from_saved_args(mut self, args: Install) -> Self {
+        self.api = args.api;
+        self.api_port = args.api_port;
+        self.add_user_ids = args.add_user_ids;
+        self.domain = Some(args.domain);
+        self.zerossl_email = Some(args.zerossl_email);
+        self.add_users_count = Some(args.add_users_count);
+        update_from_options!((self.domain_renew_url) = args.domain_renew_url);
 
         self
     }

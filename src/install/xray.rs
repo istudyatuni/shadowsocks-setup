@@ -106,12 +106,16 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
         .inspect_err(|e| error!("failed to get HOME variable, using /root: {e}"))
         .unwrap_or_else(|_| "/root".to_string());
 
+    // loading state in case user rerun script
+    let state = load_state()?;
+
     let state = InstallState {
-        args: Install::ask(args)?,
+        args: Install::ask(args, state.as_ref().map(|s| &s.args))?,
+        // todo: use state.home_dir
         home_dir: PathBuf::from(&home),
         home_dir_str: home,
-        download_dir: None,
-        cert_dir: None,
+        download_dir: state.as_ref().and_then(|s| s.download_dir.clone()),
+        cert_dir: state.and_then(|s| s.cert_dir),
     };
     save_json_config(PathBuf::from(STATE_FILE_DIR), STATE_FILE, &state)?;
 
@@ -125,12 +129,7 @@ pub fn run_install_manager(sh: &Shell, args: XrayInstallArgs) -> Result<()> {
 }
 
 pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
-    let state_dir = PathBuf::from(STATE_FILE_DIR);
-    let state_file = state_dir.join(STATE_FILE);
-
-    let state = std::fs::read_to_string(state_file).context("failed to read install state")?;
-    let mut state: InstallState =
-        serde_json::from_str(&state).context("failed to deserialize install state")?;
+    let mut state = load_state()?.context("something wrong, state not found")?;
     let args = &state.args;
 
     let mut should_save_state = false;
@@ -171,7 +170,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
     }
 
     if should_save_state {
-        save_json_config(&state_dir, STATE_FILE, &state)?;
+        save_json_config(STATE_FILE_DIR, STATE_FILE, &state)?;
     }
 
     Ok(())
@@ -400,6 +399,18 @@ fn print_users_links(users_links_file_dir: &Path, users: &[Client], domain: &str
 
 fn download_url(version: &Version) -> String {
     DL_URL.to_owned() + "/" + version.as_prefixed().as_str() + "/" + DL_FILE
+}
+
+fn load_state() -> Result<Option<InstallState>> {
+    let state_dir = PathBuf::from(STATE_FILE_DIR);
+    let state_file = state_dir.join(STATE_FILE);
+    if !state_file.exists() {
+        return Ok(None);
+    }
+    let state = std::fs::read_to_string(state_file).context("failed to read install state")?;
+    let state: InstallState =
+        serde_json::from_str(&state).context("failed to deserialize install state")?;
+    Ok(Some(state))
 }
 
 #[derive(Debug, Serialize, Deserialize)]
