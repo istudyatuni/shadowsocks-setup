@@ -39,6 +39,8 @@ pub const VLESS_INBOUND_TAG: &str = "vless";
 
 const INSTALL_EXE_REQUIRED: &[&str] = &[
     "chmod",
+    // for acme.sh
+    "cron",
     "nginx",
     "sh",
     "sha512sum",
@@ -159,7 +161,7 @@ pub fn install(sh: &Shell, step: XrayInstallStep) -> Result<()> {
         }
         XrayInstallStep::ConfigureElse => {
             let Some(cert_dir) = &state.cert_dir else {
-                bail!("invalid state: no download_dir")
+                bail!("invalid state: no cert_dir")
             };
             let mut users_config = XrayConfig::new(cert_dir)?;
             configure(args, &mut users_config, cert_dir, &state.home_dir_str)?;
