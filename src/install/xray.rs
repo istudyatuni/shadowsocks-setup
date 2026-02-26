@@ -380,7 +380,7 @@ fn print_users_links(users_links_file_dir: &Path, users: &[Client], domain: &str
             u.id
         )
     };
-    let links = users.iter().map(url_fmt).collect::<Vec<_>>().join("\n");
+    let links = users.iter().map(url_fmt).collect::<Vec<_>>().join("\n") + "\n";
     if users.len() < 200 {
         println!("{links}");
     } else {
