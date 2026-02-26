@@ -24,10 +24,19 @@ fn main() -> Result<()> {
     let sh = Shell::new()?;
 
     // disable in dev build
-    if cfg!(not(debug_assertions)) && args.need_root() && sudo::check() != sudo::RunningAs::Root {
-        eprintln!("escalating to root");
-        if sudo::escalate_if_needed().map_err(|e| anyhow!("{e}"))? != sudo::RunningAs::Root {
-            bail!("This script requires sudo");
+    if cfg!(not(debug_assertions)) {
+        // escalate if need root
+        if args.need_root() {
+            if sudo::check() != sudo::RunningAs::Root {
+                eprintln!("escalating to root");
+                if sudo::escalate_if_needed().map_err(|e| anyhow!("{e}"))? != sudo::RunningAs::Root
+                {
+                    bail!("This script requires sudo");
+                }
+            }
+        } else if sudo::check() == sudo::RunningAs::Root {
+            // error if doesn't need root
+            bail!("Do not run this under root");
         }
     }
 
