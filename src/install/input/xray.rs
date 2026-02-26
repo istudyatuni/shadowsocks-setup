@@ -125,14 +125,15 @@ impl DataInput {
         self
     }
     fn ask_api(&mut self) -> Result<()> {
-        self.api = Confirm::new("Enable API?")
+        self.api = Confirm::new("Enable Xray API?")
+            .with_help_message("This allows to manage Xray service with API")
             .with_default(self.api)
             .prompt()?;
         self.save_state();
         Ok(())
     }
     fn ask_api_port(&mut self) -> Result<()> {
-        self.api_port = CustomType::<u32>::new("API port")
+        self.api_port = CustomType::<u32>::new("Xray API port")
             .with_starting_input(&self.api_port.to_string())
             .with_error_message("Invalid number")
             .with_validator(super::validate::validate_net_port)
@@ -152,6 +153,7 @@ impl DataInput {
     }
     fn ask_domain_renew_url(&mut self) -> Result<()> {
         let res = Text::new("Domain renew URL")
+            .with_help_message("This URL will be added to cron")
             .with_initial_value(self.domain_renew_url.as_deref().unwrap_or_default())
             .prompt()?;
         if !res.is_empty() {
@@ -167,6 +169,7 @@ impl DataInput {
     fn ask_zerossl_email(&mut self) -> Result<()> {
         self.zerossl_email = Some(
             Text::new("ZeroSSL email")
+                .with_help_message("Email is required to issue certificate with ZeroSSL")
                 .with_initial_value(self.zerossl_email.as_deref().unwrap_or_default())
                 .with_validator(super::validate::validate_empty_string)
                 .with_validator(super::validate::validate_simple_email)
