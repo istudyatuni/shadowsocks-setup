@@ -272,11 +272,21 @@ fn configure_cert(sh: &Shell, args: &Install, home_dir: &Path) -> Result<AcmeIns
         "{acme_bin} --register-account -m {email} --debug 2 --output-insecure"
     )
     .run()?;
-    cmd!(
+    if let Err(e) = cmd!(
         sh,
         "{acme_bin} --issue -d {domain} --keylength ec-256 --nginx"
     )
-    .run()?;
+    .run()
+    {
+        error!("[acme.sh] failed to issue cert, skipping: {e}");
+        info!("[acme.sh] try it manually");
+        info!(
+            "[acme.sh] install cert with `{} --install-cert -d {domain} --ecc --fullchain-file {cert_dir}/xray.crt --key-file {cert_dir}/xray.key`",
+            acme_bin.display(),
+            cert_dir = cert_dir.display(),
+        );
+        return Ok(AcmeInstallResult { cert_dir });
+    };
 
     cmd!(sh, "{acme_bin} --install-cert -d {domain} --ecc --fullchain-file {cert_dir}/xray.crt --key-file {cert_dir}/xray.key").run()?;
     cmd!(sh, "chmod +r {cert_dir}/xray.key").run()?;
