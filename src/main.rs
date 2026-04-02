@@ -25,18 +25,26 @@ fn main() -> Result<()> {
 
     // disable in dev build
     if cfg!(not(debug_assertions)) {
-        // escalate if need root
-        if args.need_root() {
-            if sudo::check() != sudo::RunningAs::Root {
-                eprintln!("escalating to root");
-                if sudo::escalate_if_needed().map_err(|e| anyhow!("{e}"))? != sudo::RunningAs::Root
-                {
-                    bail!("This script requires sudo");
+        if args.prefer_root() {
+            // ask to continue when running under sudo or normal user
+            if is_sudo_not_root() || sudo::check() != sudo::RunningAs::Root {
+                let cont = inquire::Confirm::new(
+                    "It's prefered to run this as root user (not with sudo). Continue anyway?",
+                )
+                .with_default(false)
+                .prompt()?;
+                if !cont {
+                    return Ok(());
                 }
             }
-        } else if sudo::check() == sudo::RunningAs::Root {
-            // error if doesn't need root
-            bail!("Do not run this under root");
+        }
+
+        // escalate if need root
+        if args.need_root() && sudo::check() != sudo::RunningAs::Root {
+            eprintln!("escalating to root");
+            if sudo::escalate_if_needed().map_err(|e| anyhow!("{e}"))? != sudo::RunningAs::Root {
+                bail!("This script requires root privileges");
+            }
         }
     }
 
@@ -68,4 +76,8 @@ fn init_logger() -> Result<()> {
     )
     .context("failed to init logging")?;
     Ok(())
+}
+
+fn is_sudo_not_root() -> bool {
+    std::env::var_os("SUDO_USER").is_some()
 }

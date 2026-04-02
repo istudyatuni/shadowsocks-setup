@@ -122,6 +122,16 @@ impl Args {
             Self::Shadowsocks { .. } => true,
         }
     }
+    /// Is it prefered to run command as root (not sudo)
+    pub fn prefer_root(&self) -> bool {
+        match self {
+            Args::Shadowsocks { .. } => false,
+            Args::Xray { cmd } => match cmd {
+                XrayArgs::Install(_) => true,
+                XrayArgs::InstallStep { .. } => false,
+            },
+        }
+    }
 }
 
 impl XrayInstallStep {

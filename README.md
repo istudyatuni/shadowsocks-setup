@@ -32,6 +32,8 @@ sssetup ss uninstall
 
 Before installing you need to add a `A` record for the domain in your DNS hosting
 
+It's recommended to run this under root (not sudo)
+
 ```bash
 # install shadowsocks, input options interactively
 sssetup xray install
